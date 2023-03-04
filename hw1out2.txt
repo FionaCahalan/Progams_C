@@ -1,0 +1,47 @@
+AvailableWorkerList 0900 Alice Bob Carol David Emily
+CustomerOrder 0930 Edgar 5 5
+WorkerAssignment 0930 Alice Edgar
+OrderCompletion 0955 Edgar
+CustomerOrder 0957 Laurie 2 0
+WorkerAssignment 0957 Bob Laurie
+CustomerOrder 1000 Kumar 3 0
+WorkerAssignment 1000 Bob Kumar
+OrderCompletion 1020 Laurie
+OrderCompletion 1020 Kumar
+CustomerOrder 1120 Kodjo 0 8
+WorkerAssignment 1120 Carol Kodjo
+OrderCompletion 1143 Kodjo
+AvailableWorkerList 1200 David Emily Alice Bob Carol
+CustomerOrder 1345 Cynthia 4 5
+WorkerAssignment 1345 David Cynthia
+CustomerOrder 1400 John 1 1
+WorkerAssignment 1400 Emily John
+OrderCompletion 1409 Cynthia
+CustomerOrder 1414 Debby 7 1
+WorkerAssignment 1414 Alice Debby
+OrderCompletion 1417 John
+OrderCompletion 1437 Debby
+AvailableWorkerList 1500 Bob Carol David Emily Alice
+CustomerOrder 1600 Julie 6 3
+WorkerAssignment 1600 Bob Julie
+CustomerOrder 1601 Frank 2 2
+WorkerAssignment 1601 Carol Frank
+CustomerOrder 1605 George 3 7
+WorkerAssignment 1605 David George
+CustomerOrder 1607 Henry 2 1
+WorkerAssignment 1607 Emily Henry
+CustomerOrder 1610 Irene 0 7
+WorkerAssignment 1610 Alice Irene
+CustomerOrder 1611 Jack 0 3
+WorkerAssignment 1611 Alice Jack
+WorkerAssignmentList 1612 Carol:Frank Bob:Julie Emily:Henry  David:George Alice:Irene,Jack
+CustomerOrder 1612 Kevin 0 9
+OrderCompletion 1620 Frank
+WorkerAssignment 1620 Carol Kevin
+OrderCompletion 1624 Julie
+OrderCompletion 1625 Henry
+OrderCompletion 1630 George
+OrderCompletion 1631 Irene
+OrderCompletion 1631 Jack
+OrderCompletion 1644 Kevin
+MaxFulfillmentTime 1850 32

@@ -1,0 +1,19 @@
+PrintAvailableWorkerList 0900
+CustomerOrder 0930 Edgar 5 5
+CustomerOrder 0957 Laurie 2 0
+CustomerOrder 1000 Kumar 3 0
+CustomerOrder 1120 Kodjo 0 8
+PrintAvailableWorkerList 1200
+CustomerOrder 1345 Cynthia 4 5
+CustomerOrder 1400 John 1 1
+CustomerOrder 1414 Debby 7 1
+PrintAvailableWorkerList 1500
+CustomerOrder 1600 Julie 6 3
+CustomerOrder 1601 Frank 2 2
+CustomerOrder 1605 George 3 7
+CustomerOrder 1607 Henry 2 1
+CustomerOrder 1610 Irene 0 7
+CustomerOrder 1611 Jack 0 3
+PrintWorkerAssignmentList 1612
+CustomerOrder 1612 Kevin 0 9
+PrintMaxFulfillmentTime 1850

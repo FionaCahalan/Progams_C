@@ -1,0 +1,8 @@
+CustomerOrder 1015 Gary 1 3
+CustomerOrder 1030 Janet 10 0
+CustomerOrder 1045 Daniel 0 3
+PrintAvailableWorkerList 1046
+PrintWorkerAssignmentList 1047
+CustomerOrder 1100 Felix 4 0
+CustomerOrder 1200 Lucy 2 2
+PrintMaxFulfillmentTime 1215

@@ -1,0 +1,10 @@
+ClosestCommonSupercategory Mycoplasma Nanohaloarchaeota Prokaryota
+IsSupercategory Parazoa Fungi no
+NumberOfAllSubcategories Eukaryota 15
+DirectSubcategories Eukaryota Animalia Fungi Plantae Protista
+NumberOfAllSupercategories Vertebrata 6
+DirectSupercategory Gracilicutes Eubacteria
+NumberOfAllSubcategories Eubacteria 5
+AllSubcategories Archaebacteria DPANN Nanoarchaeota Nanohaloarchaeota Woesearchaeota Euryarchaeida Proteoarchaeota
+AllSupercategories Chordata Parahoxozoa Eumetazoa Animalia Eukaryota Life
+IsSubcategory Protista Amoebozoa yes

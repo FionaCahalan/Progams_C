@@ -1,0 +1,14 @@
+Life Prokaryota Eukaryota
+Prokaryota Eubacteria Archaebacteria
+Eukaryota Protista Plantae Fungi Animalia
+Eubacteria Ultramicrobacteria Terrabacteria Gracilicutes
+Ultramicrobacteria Mycoplasma Nanobacteria
+Archaebacteria Euryarchaeida Proteoarchaeota DPANN
+DPANN Nanohaloarchaeota Nanoarchaeota Woesearchaeota
+Protista Amoebozoa
+Plantae Chlorophyta Bryophyta
+Fungi Aphelidiomyceta
+Animalia Eumetazoa Parazoa
+Eumetazoa Ctenophora Parahoxozoa
+Parahoxozoa Chordata Ambulacraria
+Chordata Vertebrata

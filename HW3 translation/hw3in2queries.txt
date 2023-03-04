@@ -1,0 +1,10 @@
+ClosestCommonSupercategory Mycoplasma Nanohaloarchaeota
+IsSupercategory Parazoa Fungi
+NumberOfAllSubcategories Eukaryota
+DirectSubcategories Eukaryota
+NumberOfAllSupercategories Vertebrata
+DirectSupercategory Gracilicutes
+NumberOfAllSubcategories Eubacteria
+AllSubcategories Archaebacteria
+AllSupercategories Chordata
+IsSubcategory Protista Amoebozoa
