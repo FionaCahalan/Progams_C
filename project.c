@@ -93,6 +93,7 @@ static int sub_time (int og, int sub){
 static void start_work(struct node *worker){
     struct node *finger = assigns_head;
     if(!assigns_size || finger->returnT > worker->returnT){
+        worker->next = finger;
         assigns_head = worker;
         assigns_size++;
     } else{
@@ -265,7 +266,7 @@ int main(int argc, char *argv[]) {
 
         if(floater)
             floater = wait_time_check(floater, time);
-printf("%d %p %d\n", assigns_size, assigns_head, time);
+// printf("%d %p %d\n", assigns_size, assigns_head, time);
         while(assigns_size > 0 && assigns_head->returnT <= time){
             int finish = assigns_head->returnT;
             max_time = completion_check(time, max_time);
