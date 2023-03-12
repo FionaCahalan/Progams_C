@@ -173,6 +173,7 @@ static struct node *assign_work(int time){
     struct worker *worker = worker_remove_first();
     assignment = realloc(assignment, sizeof *assignment + strlen(worker->name) + 1);
     strcpy(assignment->worker, worker->name);
+    free(worker);
     assignment->assignT = time;
     assignment->returnT = add_time(time, assignment->books + assignment->electronics + 10 + (assignment->books > 0 && assignment->electronics > 0 ? 5 : 0));
     printf("WorkerAssignment %04d %s %s\n", assignment->assignT, assignment->worker, assignment->customers);
