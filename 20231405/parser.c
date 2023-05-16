@@ -34,15 +34,43 @@ static int subtract(int a, int b){
 }
 
 static int c_idx = 0;
+static char equation[] = "124*34";
 static char next_char(void){
-	char equation[] = "124*34";
 	return equation[c_idx++];
 } 
 
-int main(int argc, char *argv[]){
-	(void)argc;
-	(void)argv;
+static char peak_char(void){
+	return equation[c_idx];
+}
+
+static struct node *next_part(void){
 	int ch = next_char();
+	// could probably remove if statement
+	if(ch && ch > 47 && ch < 58){
+		int number = ch - 48;
+		while(peak_char() && peak_char() > 47 && peak_char() < 58){
+			ch = next_char();
+			number = number * 10 + (ch - 48);
+		}
+		struct num *tmp = malloc(sizeof *tmp);
+		tmp->number = number;
+		printf("%d\n", number);
+		return &(tmp->super);
+	} else {
+		struct opr *tmp = malloc(sizeof *tmp);
+		if(ch == 42){
+			tmp->opr = multiply;
+		} if(ch == 43){
+			tmp->opr = add;
+		} if(ch == 45) {
+			tmp->opr = subtract;
+		} if(ch == 47) {
+			tmp->opr = divide;
+		}
+		printf("%s\n", "OP");
+		return &(tmp->super);
+	}
+	/*
 	int number = 0;
 	while(ch) {
 		if(ch > 47 && ch < 58) {
@@ -63,7 +91,14 @@ int main(int argc, char *argv[]){
 		}
 		ch = next_char();
 	}
-	printf("%d\n", number);
+	*/
+}
+
+int main(int argc, char *argv[]){
+	(void)argc;
+	(void)argv;
+	while(peak_char())
+		next_part();
 }
 
 /*
