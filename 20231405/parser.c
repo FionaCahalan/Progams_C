@@ -6,13 +6,12 @@
 struct node;
 
 struct node_vtable{
-	// void (*print)();
+	void (*print)(void);
     int (*evaluate)(int, int);
 };
 
 struct node{
-	struct node *left_c;
-	struct node *right_c;
+	struct node_vtable *ops;
 	int type;
     // 0 = number
 	// 1 = function
@@ -20,27 +19,20 @@ struct node{
 
 struct opr{
 	struct node super;
-    struct node_vtable *opr;
+    struct node *left_c;
+	struct node *right_c;
 };
-
-/*
-fix naming. 
-have operator store the left and right child
-Have node store the v_table and num store the number
-
-*/
-
 
 struct num{
 	struct node super;
 	int number;
 };
 
-static int multiply(int a, int b){
+static int mul(int a, int b){
 	return a * b;
 }
 
-static int divide(int a, int b){
+static int divi(int a, int b){
 	return a / b;
 }
 
@@ -48,13 +40,58 @@ static int add(int a, int b){
 	return a + b;
 }
 
-static int subtract(int a, int b){
+static int sub(int a, int b){
 	return a - b;
 }
 
-static struct node_vtable multi = {
-    // .print = 
-    .evaluate = multiply,
+// This one is probably wrong, but I wasn't sure how to make it work with scope
+static int eval_num(int a, int b){
+    return a;
+}
+
+static void print_mul(void){
+	printf("*");
+}
+
+static void print_div(void){
+	printf("/");
+}
+
+static void print_add(void){
+	printf("+");
+}
+
+static void print_sub(void){
+	printf("-");
+}
+
+static void print_num(void){
+    printf("NOT FINISHED NUMBER PRINT LOL");
+}
+
+static struct node_vtable multiply = {
+    .print = print_mul,
+    .evaluate = mul,
+};
+
+static struct node_vtable divide = {
+    .print = print_div,
+    .evaluate = divi,
+};
+
+static struct node_vtable addition = {
+    .print = print_add,
+    .evaluate = add,
+};
+
+static struct node_vtable subtract = {
+    .print = print_sub,
+    .evaluate = sub,
+};
+
+static struct node_vtable number_v = {
+    .print = print_num,
+    .evaluate = eval_num,
 };
 
 static int c_idx = 0;
@@ -81,51 +118,55 @@ static struct node *next_part(void){
 		struct num *tmp = calloc(sizeof *tmp, 1);
 		tmp->number = number;
 		tmp->super.type = 0;
-		printf("%d\n", number);
+        tmp->super.ops = &number_v;
+printf("%d\n", number);
 		return &(tmp->super);
 	} else {
 		struct opr *tmp = calloc(sizeof *tmp, 1);
 		if(ch == '*'){
-			tmp->opr = &multi;
-		} if(ch == '+'){
-			tmp->opr = &multi;
-		} if(ch == '-') {
-			tmp->opr = &multi;
+			tmp->super.ops = &multiply;
 		} if(ch == '/') {
-			tmp->opr = &multi;
+			tmp->super.ops = &divide;
+		} if(ch == '+'){
+			tmp->super.ops = &addition;
+		} if(ch == '-') {
+			tmp->super.ops = &subtract;
 		}
 		tmp->super.type = 1;
-		printf("%s\n", "OP");
+printf("%s\n", "OP");
 		return &tmp->super;
 	}
 }
 
 static struct node *factor(void){
-    if (symbol == num) {
+    if (symbol->type == 0) {
         struct node *temp = symbol;
         symbol = next_part();
         return temp;
     }
+    return NULL;
 }
 
 static struct node *term(void){
     struct node *head = factor();
-    while (peak_char() && symbol. ==  * /){
-        symbol->left_c = head;
+    while (peak_char() && symbol->type == 1 && (symbol->ops == &multiply || symbol->ops == &divide)){
+        struct opr *temp = (struct opr *) symbol;
+        temp->left_c = head;
         head = symbol;
         symbol = next_part();
-        head->right_c = factor();
+        temp->right_c = factor();
     }
     return head;
 }
 
 static struct node *expression(void){
     struct node *head = term();
-    while (peak_char() && symbol->type == 1 && (symbol+-)){
-        symbol->left_c = head;
+    while (peak_char() && symbol->type == 1 && (symbol->ops == &addition || symbol->ops == &subtract)){
+        struct opr *temp = (struct opr *) symbol;
+        temp->left_c = head;
         head = symbol;
         symbol = next_part();
-        head->right_c = term();
+        temp->right_c = term();
     }
     return head;
 }
