@@ -6,8 +6,8 @@
 struct node;
 
 struct node_vtable{
-	void (*print)(void);
-    int (*evaluate)(int, int);
+	void (*print)(struct node *curr);
+    int (*evaluate)(struct node *curr);
 };
 
 struct node{
@@ -28,45 +28,56 @@ struct num{
 	int number;
 };
 
-static int mul(int a, int b){
-	return a * b;
+static int mul(struct node *curr){
+	struct opr *op = (struct opr *)curr;
+    int a = op->left_c->ops->evaluate(op->left_c);
+    int b = op->right_c->ops->evaluate(op->right_c);
+    return a * b;
 }
 
-static int divi(int a, int b){
-	return a / b;
+static int divi(struct node *curr){
+	struct opr *op = (struct opr *)curr;
+    int a = op->left_c->ops->evaluate(op->left_c);
+    int b = op->right_c->ops->evaluate(op->right_c);
+    return a / b;
 }
 
-static int add(int a, int b){
-	return a + b;
+static int add(struct node *curr){
+	struct opr *op = (struct opr *)curr;
+    int a = op->left_c->ops->evaluate(op->left_c);
+    int b = op->right_c->ops->evaluate(op->right_c);
+    return a + b;
 }
 
-static int sub(int a, int b){
-	return a - b;
+static int sub(struct node *curr){
+	struct opr *op = (struct opr *)curr;
+    int a = op->left_c->ops->evaluate(op->left_c);
+    int b = op->right_c->ops->evaluate(op->right_c);
+    return a - b;
 }
 
-// This one is probably wrong, but I wasn't sure how to make it work with scope
-static int eval_num(int a, int b){
-    return a;
+static int eval_num(struct node *curr){
+    return ((struct num*)curr)->number;
 }
 
-static void print_mul(void){
+static void print_mul(struct node *curr){
 	printf("*");
 }
 
-static void print_div(void){
+static void print_div(struct node *curr){
 	printf("/");
 }
 
-static void print_add(void){
+static void print_add(struct node *curr){
 	printf("+");
 }
 
-static void print_sub(void){
+static void print_sub(struct node *curr){
 	printf("-");
 }
 
-static void print_num(void){
-    printf("NOT FINISHED NUMBER PRINT LOL");
+static void print_num(struct node *curr){
+    printf("%d", curr->ops->evaluate(curr));
 }
 
 static struct node_vtable multiply = {
@@ -95,15 +106,19 @@ static struct node_vtable number_v = {
 };
 
 static int c_idx = 0;
-static char equation[] = "124*34";
+static char equation[] = "124*34+2*30";
 static struct node* symbol;
 
 static char next_char(void){
-	return equation[c_idx++];
+    if (c_idx < 12)
+        return equation[c_idx++];
+    else return -1;
 }
 
 static char peak_char(void){
-	return equation[c_idx];
+	if (c_idx < 12)
+        return equation[c_idx];
+    else return -1;
 }
 
 static struct node *next_part(void){
@@ -121,7 +136,7 @@ static struct node *next_part(void){
         tmp->super.ops = &number_v;
 printf("%d\n", number);
 		return &(tmp->super);
-	} else {
+	} else if (ch != -1){
 		struct opr *tmp = calloc(sizeof *tmp, 1);
 		if(ch == '*'){
 			tmp->super.ops = &multiply;
@@ -135,7 +150,9 @@ printf("%d\n", number);
 		tmp->super.type = 1;
 printf("%s\n", "OP");
 		return &tmp->super;
-	}
+	} else {
+        return NULL;
+    }
 }
 
 static struct node *factor(void){
