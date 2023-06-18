@@ -107,24 +107,27 @@ static struct node_vtable number_v = {
 
 
 static int c_idx = 0;
-static char equation[] = "124*34+2*30";
+// static char equation[] = "124*34+2*30*5";
+// static char equation[] = "124*34-2";
+// static char equation[] = "124*34+2*30-5";
+static char equation[] = "124*34+2*30-5*100+66/11";
+// static char equation[] = "124*34+2*30";
 static struct node* symbol;
 
 static char next_char(void){
-    if (c_idx < 12)
+    if (c_idx < 23)
         return equation[c_idx++];
     else return -1;
 }
 
 static char peak_char(void){
-	if (c_idx < 12)
+	if (c_idx < 23)
         return equation[c_idx];
     else return -1;
 }
 
 static void next_part(void){
 	int ch = next_char();
-	// could probably remove if statement
 	if(ch != -1 && ch >= '0' && ch <= '9'){
 		int number = ch - '0';
 		while(peak_char() != -1 && peak_char() >= '0' && peak_char() <= '9'){
@@ -135,7 +138,6 @@ static void next_part(void){
 		tmp->number = number;
 		tmp->super.type = 0;
         tmp->super.ops = &number_v;
-printf("%d\n", number);
 		symbol = &(tmp->super);
 	} else if (ch){
 		struct opr *tmp = calloc(sizeof *tmp, 1);
@@ -149,7 +151,6 @@ printf("%d\n", number);
 			tmp->super.ops = &subtract;
 		}
 		tmp->super.type = 1;
-printf("%s\n", "OP");
 		symbol = &tmp->super;
 	} else {
         symbol = NULL;
@@ -189,108 +190,43 @@ static struct node *expression(void){
     return head;
 }
 
+static void print_tree(struct node *curr){
+    if (curr->type == 0){
+        curr->ops->print(curr);
+    } else {
+        print_tree(((struct opr *)curr)->left_c);
+        curr->ops->print(curr);
+        print_tree(((struct opr *)curr)->right_c);
+    }
+}
+
+static void print_tree1(struct node *curr, int level){
+    printf("%-*s", level*3, "");
+    if (curr->type == 0){
+        curr->ops->print(curr);
+        printf("\n");
+    } else {
+        curr->ops->print(curr);
+        printf("\n");
+        print_tree1(((struct opr *)curr)->left_c, level + 1);
+        print_tree1(((struct opr *)curr)->right_c, level + 1);
+    }
+}
+
 int main(int argc, char *argv[]){
 	(void)argc;
 	(void)argv;
-	if(peak_char() != -1){  // if it's the end of string indicator, will the be false!?!?
+	if(peak_char() != -1){ 
         next_part();
-        expression();
+        struct node *head = expression();
+        int answer = head->ops->evaluate(head);
+        printf("%d\n", answer);
+        print_tree(head);
+        printf("\n");
+        print_tree1(head, 0);
 	}
 }
 
-
-/*
-static int c_idx = 0;
-static char equation[] = "124*34+2*30";
-static struct node* symbol;
-
-static char next_char(void){
-    if (c_idx < 12)
-        return equation[c_idx++];
-    else return -1;
-}
-
-static char peak_char(void){
-	if (c_idx < 12)
-        return equation[c_idx];
-    else return -1;
-}
-
-static struct node *next_part(void){
-	int ch = next_char();
-	// could probably remove if statement
-	if(ch && ch >= '0' && ch <= '9'){
-		int number = ch - '0';
-		while(peak_char() && peak_char() >= '0' && peak_char() <= '9'){
-			ch = next_char();
-			number = number * 10 + (ch - '0');
-		}
-		struct num *tmp = calloc(sizeof *tmp, 1);
-		tmp->number = number;
-		tmp->super.type = 0;
-        tmp->super.ops = &number_v;
-printf("%d\n", number);
-		return &(tmp->super);
-	} else if (ch != -1){
-		struct opr *tmp = calloc(sizeof *tmp, 1);
-		if(ch == '*'){
-			tmp->super.ops = &multiply;
-		} if(ch == '/') {
-			tmp->super.ops = &divide;
-		} if(ch == '+'){
-			tmp->super.ops = &addition;
-		} if(ch == '-') {
-			tmp->super.ops = &subtract;
-		}
-		tmp->super.type = 1;
-printf("%s\n", "OP");
-		return &tmp->super;
-	} else {
-        return NULL;
-    }
-}
-
-static struct node *factor(void){
-    if (symbol->type == 0) {
-        struct node *temp = symbol;
-        symbol = next_part();
-        return temp;
-    }
-    return NULL;
-}
-
-static struct node *term(void){
-    struct node *head = factor();
-    while (peak_char() && symbol->type == 1 && (symbol->ops == &multiply || symbol->ops == &divide)){
-        struct opr *temp = (struct opr *) symbol;
-        temp->left_c = head;
-        head = symbol;
-        symbol = next_part();
-        temp->right_c = factor();
-    }
-    return head;
-}
-
-static struct node *expression(void){
-    struct node *head = term();
-    while (peak_char() && symbol->type == 1 && (symbol->ops == &addition || symbol->ops == &subtract)){
-        struct opr *temp = (struct opr *) symbol;
-        temp->left_c = head;
-        head = symbol;
-        symbol = next_part();
-        temp->right_c = term();
-    }
-    return head;
-}
-
-int main(int argc, char *argv[]){
-	(void)argc;
-	(void)argv;
-	if(peak_char()){
-        symbol = next_part();
-        expression();
-	}
-}*/
 
 /*
 Expression
@@ -302,10 +238,8 @@ factor {("*"|"/") factor}
 factor
 number
 
+add support for negative/positive numbers, spaces, and paranthesis
+use switch statement instead of series of if statements
 
-Ex: 142 + 36
-
-	    +
-       / \
-     142  36
+return \0 instead of EOF
 */
