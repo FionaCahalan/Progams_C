@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <setjmp.h>
+
+static jmp_buf jb;
 
 struct node;
 
@@ -28,6 +31,7 @@ struct num{
 	int number;
 };
 
+// function to evalulate operation or return number
 static int mul(struct node *curr){
 	struct opr *op = (struct opr *)curr;
     int a = op->left_c->ops->evaluate(op->left_c);
@@ -110,24 +114,33 @@ static int c_idx = 0;
 // static char equation[] = "124*34+2*30*5";
 // static char equation[] = "124*34-2";
 // static char equation[] = "124*34+2*30-5";
-static char equation[] = "124*34+2*30-5*100+66/11";
-// static char equation[] = "124*34+2*30";
+static char equation[] = "124*34 + 2*30-5*100+66/11";
+// static char equation[] = "124+*7";
+// static char equation[] = "3*4+6a";
 static struct node* symbol;
 
+// returns current char, increments curr char
 static char next_char(void){
-    if (c_idx < 23)
+    if (c_idx < sizeof equation)
         return equation[c_idx++];
     else return -1;
 }
 
+// returns current char
 static char peak_char(void){
-	if (c_idx < 23)
+	if (c_idx < sizeof equation)
         return equation[c_idx];
     else return -1;
 }
 
+#define NO_NUM 1
+#define UNKNOWN_SYM 2
+
+// grabs characters to from next symbol (i.e. number or operator)
 static void next_part(void){
 	int ch = next_char();
+    while (ch == ' ')
+        ch = next_char();
 	if(ch != -1 && ch >= '0' && ch <= '9'){
 		int number = ch - '0';
 		while(peak_char() != -1 && peak_char() >= '0' && peak_char() <= '9'){
@@ -143,13 +156,15 @@ static void next_part(void){
 		struct opr *tmp = calloc(sizeof *tmp, 1);
 		if(ch == '*'){
 			tmp->super.ops = &multiply;
-		} if(ch == '/') {
+		} else if(ch == '/') {
 			tmp->super.ops = &divide;
-		} if(ch == '+'){
+		} else if(ch == '+'){
 			tmp->super.ops = &addition;
-		} if(ch == '-') {
+		} else if(ch == '-') {
 			tmp->super.ops = &subtract;
-		}
+		} else {
+            longjmp(jb, UNKNOWN_SYM);
+        }
 		tmp->super.type = 1;
 		symbol = &tmp->super;
 	} else {
@@ -163,7 +178,8 @@ static struct node *factor(void){
         next_part();
         return temp;
     }
-    return NULL;
+    longjmp(jb, NO_NUM);
+    //return NULL;
 }
 
 static struct node *term(void){
@@ -190,6 +206,7 @@ static struct node *expression(void){
     return head;
 }
 
+// prints tree inorder, effectively printing original input
 static void print_tree(struct node *curr){
     if (curr->type == 0){
         curr->ops->print(curr);
@@ -200,6 +217,7 @@ static void print_tree(struct node *curr){
     }
 }
 
+// prints tree indented, preorder
 static void print_tree1(struct node *curr, int level){
     printf("%-*s", level*3, "");
     if (curr->type == 0){
@@ -218,12 +236,29 @@ int main(int argc, char *argv[]){
 	(void)argv;
 	if(peak_char() != -1){ 
         next_part();
-        struct node *head = expression();
-        int answer = head->ops->evaluate(head);
-        printf("%d\n", answer);
-        print_tree(head);
-        printf("\n");
-        print_tree1(head, 0);
+        // error handling
+        switch(setjmp(jb)){
+            case 0:
+                struct node *head = expression();
+                int answer = head->ops->evaluate(head);
+                printf("%d\n", answer);
+                print_tree(head);
+                printf("\n");
+                print_tree1(head, 0);
+                break;
+            case NO_NUM:
+                printf("number expected, no num before %c\n", peak_char());
+                exit(1);
+                break;
+            case UNKNOWN_SYM:
+                printf("unknown symbol before %c\n", peak_char());
+                exit(1);
+                break;
+            default:
+                printf("unknown error\n");
+                exit(1);
+                break;
+        }
 	}
 }
 
