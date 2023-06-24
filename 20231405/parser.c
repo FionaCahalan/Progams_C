@@ -13,6 +13,10 @@ struct node_vtable{
     int (*evaluate)(struct node *curr);
 };
 
+#define NUM 0
+#define OPER 1
+#define PAREN 2
+
 struct node{
 	struct node_vtable *ops;
 	int type;
@@ -112,9 +116,10 @@ static struct node_vtable number_v = {
 
 static int c_idx = 0;
 // static char equation[] = "124*34+2*30*5";
-// static char equation[] = "124*34-2";
+//static char equation[] = "124*34-2*(3-6)";
+static char equation[] = "4*(6-3)+24-5";
 // static char equation[] = "124*34+2*30-5";
-static char equation[] = "124*34 + 2*30-5*100+66/11";
+// static char equation[] = "124*34 + 2*30-5*100+66/11";
 // static char equation[] = "124+*7";
 // static char equation[] = "3*4+6a";
 static struct node* symbol;
@@ -136,11 +141,12 @@ static char peak_char(void){
 #define NO_NUM 1
 #define UNKNOWN_SYM 2
 
-// grabs characters to from next symbol (i.e. number or operator)
+// grabs characters to form next symbol (i.e. number or operator)
 static void next_part(void){
 	int ch = next_char();
-    while (ch == ' ')
+    while (peak_char() != -1 && ch == ' ') {
         ch = next_char();
+    }
 	if(ch != -1 && ch >= '0' && ch <= '9'){
 		int number = ch - '0';
 		while(peak_char() != -1 && peak_char() >= '0' && peak_char() <= '9'){
@@ -149,42 +155,62 @@ static void next_part(void){
 		}
 		struct num *tmp = calloc(sizeof *tmp, 1);
 		tmp->number = number;
-		tmp->super.type = 0;
+		tmp->super.type = NUM;
         tmp->super.ops = &number_v;
 		symbol = &(tmp->super);
 	} else if (ch){
 		struct opr *tmp = calloc(sizeof *tmp, 1);
-		if(ch == '*'){
+		tmp->super.type = OPER;
+        switch(ch){
+        case '*':
 			tmp->super.ops = &multiply;
-		} else if(ch == '/') {
+            break;
+		case '/':
 			tmp->super.ops = &divide;
-		} else if(ch == '+'){
+            break;
+        case '+':
 			tmp->super.ops = &addition;
-		} else if(ch == '-') {
+            break;
+		case '-':
 			tmp->super.ops = &subtract;
-		} else {
+            break;
+        case '(':
+            tmp->super.type = PAREN;
+            break;
+        case ')':
+            tmp->super.type = PAREN;
+            return;
+            break;
+		default:
             longjmp(jb, UNKNOWN_SYM);
         }
-		tmp->super.type = 1;
 		symbol = &tmp->super;
 	} else {
         symbol = NULL;
     }
 }
 
+static struct node *expression(void);
+
+// a factor is a number or an expression
 static struct node *factor(void){
-    if (symbol->type == 0) {
+    if (symbol->type == NUM) {
         struct node *temp = symbol;
         next_part();
         return temp;
+    } else if (symbol->type == PAREN) {
+        next_part();
+        return expression();
     }
     longjmp(jb, NO_NUM);
     //return NULL;
 }
 
+// a term can be any number of factors seperated by * or /
+// returns the head of the binary tree for the term
 static struct node *term(void){
     struct node *head = factor();
-    while (peak_char() != -1 && symbol->type == 1 && (symbol->ops == &multiply || symbol->ops == &divide)){
+    while (peak_char() != -1 && symbol->type == OPER && (symbol->ops == &multiply || symbol->ops == &divide)){
         struct opr *temp = (struct opr *) symbol;
         temp->left_c = head;
         head = symbol;
@@ -194,9 +220,11 @@ static struct node *term(void){
     return head;
 }
 
+// an expression can be any number of terms seperated by + or -
+// returns the head of the binary tree for an expression
 static struct node *expression(void){
     struct node *head = term();
-    while (peak_char() != -1 && symbol->type == 1 && (symbol->ops == &addition || symbol->ops == &subtract)){
+    while (peak_char() != -1 && symbol->type == OPER && (symbol->ops == &addition || symbol->ops == &subtract)){
         struct opr *temp = (struct opr *) symbol;
         temp->left_c = head;
         head = symbol;
@@ -208,7 +236,7 @@ static struct node *expression(void){
 
 // prints tree inorder, effectively printing original input
 static void print_tree(struct node *curr){
-    if (curr->type == 0){
+    if (curr->type == NUM){
         curr->ops->print(curr);
     } else {
         print_tree(((struct opr *)curr)->left_c);
@@ -220,7 +248,7 @@ static void print_tree(struct node *curr){
 // prints tree indented, preorder
 static void print_tree1(struct node *curr, int level){
     printf("%-*s", level*3, "");
-    if (curr->type == 0){
+    if (curr->type == NUM){
         curr->ops->print(curr);
         printf("\n");
     } else {
@@ -271,7 +299,10 @@ term
 factor {("*"|"/") factor}
 
 factor
+number | "(" expression ")"
+
 number
+"0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
 
 add support for negative/positive numbers, spaces, and paranthesis
 use switch statement instead of series of if statements
