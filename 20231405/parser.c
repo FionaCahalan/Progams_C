@@ -15,7 +15,8 @@ struct node_vtable{
 
 #define NUM 0
 #define OPER 1
-#define PAREN 2
+#define L_PAREN 2
+#define R_PAREN 3
 
 struct node{
 	struct node_vtable *ops;
@@ -69,18 +70,22 @@ static int eval_num(struct node *curr){
 }
 
 static void print_mul(struct node *curr){
-	printf("*");
+	(void) curr;
+    printf("*");
 }
 
 static void print_div(struct node *curr){
+    (void) curr;
 	printf("/");
 }
 
 static void print_add(struct node *curr){
+    (void) curr;
 	printf("+");
 }
 
 static void print_sub(struct node *curr){
+    (void) curr;
 	printf("-");
 }
 
@@ -114,32 +119,34 @@ static struct node_vtable number_v = {
 };
 
 
-static int c_idx = 0;
+static unsigned c_idx = 0;
 // static char equation[] = "124*34+2*30*5";
-//static char equation[] = "124*34-2*(3-6)";
-static char equation[] = "4*(6-3)+24-5";
-// static char equation[] = "124*34+2*30-5";
-// static char equation[] = "124*34 + 2*30-5*100+66/11";
+//static char equation[] = "12*34-2*(3-6)";
+//static char equation[] = "4*(6-3)+24-5";
+//static char equation[] = "124*34+2*30-5";
+static char equation[] = "(((2*4)*3))";
+//static char equation[] = "124*34 + 2*30-5*100+66/11";
 // static char equation[] = "124+*7";
 // static char equation[] = "3*4+6a";
 static struct node* symbol;
 
 // returns current char, increments curr char
 static char next_char(void){
-    if (c_idx < sizeof equation)
+    if (c_idx < sizeof equation - 1)
         return equation[c_idx++];
     else return -1;
 }
 
 // returns current char
 static char peak_char(void){
-	if (c_idx < sizeof equation)
+	if (c_idx < sizeof equation - 1)
         return equation[c_idx];
     else return -1;
 }
 
 #define NO_NUM 1
 #define UNKNOWN_SYM 2
+#define MISS_PAREN 3
 
 // grabs characters to form next symbol (i.e. number or operator)
 static void next_part(void){
@@ -158,7 +165,7 @@ static void next_part(void){
 		tmp->super.type = NUM;
         tmp->super.ops = &number_v;
 		symbol = &(tmp->super);
-	} else if (ch){
+	} else if (ch != -1){
 		struct opr *tmp = calloc(sizeof *tmp, 1);
 		tmp->super.type = OPER;
         switch(ch){
@@ -175,13 +182,14 @@ static void next_part(void){
 			tmp->super.ops = &subtract;
             break;
         case '(':
-            tmp->super.type = PAREN;
+            tmp->super.type = L_PAREN;
             break;
         case ')':
-            tmp->super.type = PAREN;
-            return;
+            tmp->super.type = R_PAREN;
+            // return;
             break;
 		default:
+// printf("%d %d\n", c_idx, ch);
             longjmp(jb, UNKNOWN_SYM);
         }
 		symbol = &tmp->super;
@@ -198,9 +206,15 @@ static struct node *factor(void){
         struct node *temp = symbol;
         next_part();
         return temp;
-    } else if (symbol->type == PAREN) {
+    } else if (symbol->type == L_PAREN) {
         next_part();
-        return expression();
+        struct node *temp = expression();
+        if(symbol->type == R_PAREN){
+            next_part();
+            return temp;
+        } else{
+            longjmp(jb, MISS_PAREN);
+        }
     }
     longjmp(jb, NO_NUM);
     //return NULL;
@@ -210,7 +224,7 @@ static struct node *factor(void){
 // returns the head of the binary tree for the term
 static struct node *term(void){
     struct node *head = factor();
-    while (peak_char() != -1 && symbol->type == OPER && (symbol->ops == &multiply || symbol->ops == &divide)){
+    while (symbol != NULL && symbol->type == OPER && (symbol->ops == &multiply || symbol->ops == &divide)){
         struct opr *temp = (struct opr *) symbol;
         temp->left_c = head;
         head = symbol;
@@ -224,7 +238,9 @@ static struct node *term(void){
 // returns the head of the binary tree for an expression
 static struct node *expression(void){
     struct node *head = term();
-    while (peak_char() != -1 && symbol->type == OPER && (symbol->ops == &addition || symbol->ops == &subtract)){
+    // printf("%d\n", symbol->type);
+    while (symbol != NULL && symbol->type == OPER && (symbol->ops == &addition || symbol->ops == &subtract)){
+        // printf("loopy %d\n", c_idx);
         struct opr *temp = (struct opr *) symbol;
         temp->left_c = head;
         head = symbol;
@@ -280,6 +296,10 @@ int main(int argc, char *argv[]){
                 break;
             case UNKNOWN_SYM:
                 printf("unknown symbol before %c\n", peak_char());
+                exit(1);
+                break;
+            case MISS_PAREN:
+                printf("missing a parenthesis \n");
                 exit(1);
                 break;
             default:
