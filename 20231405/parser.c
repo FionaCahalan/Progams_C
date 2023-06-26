@@ -124,7 +124,11 @@ static unsigned c_idx = 0;
 //static char equation[] = "12*34-2*(3-6)";
 //static char equation[] = "4*(6-3)+24-5";
 //static char equation[] = "124*34+2*30-5";
-static char equation[] = "(((2*4)*3))";
+//static char equation[] = "(((2*4)*3))";
+//static char equation[] = "--2+36";
+static char equation[] = "-(2*3-+8)";
+//static char equation[] = "3*-2";
+//static char equation[] = "()";
 //static char equation[] = "124*34 + 2*30-5*100+66/11";
 // static char equation[] = "124+*7";
 // static char equation[] = "3*4+6a";
@@ -202,13 +206,31 @@ static struct node *expression(void);
 
 // a factor is a number or an expression
 static struct node *factor(void){
+    struct node *temp;
+    if(symbol->ops == &addition){
+        next_part();
+    }
+
     if (symbol->type == NUM) {
-        struct node *temp = symbol;
+        temp = symbol;
         next_part();
         return temp;
-    } else if (symbol->type == L_PAREN) {
+    }else if(symbol->ops == &subtract){
+        struct opr *neg = calloc(sizeof *neg, 1);
+        neg->super.type = OPER;
+        neg->super.ops = &multiply;
+
         next_part();
-        struct node *temp = expression();
+        struct num *neg_1 = calloc(sizeof *neg_1, 1);
+        neg_1->number = -1;
+        neg_1->super.type = NUM;
+        neg_1->super.ops = &number_v;
+        neg->left_c = &neg_1->super;
+        neg->right_c = factor();
+        return &neg->super;
+    }else if (symbol->type == L_PAREN) {
+        next_part();
+        temp = expression();
         if(symbol->type == R_PAREN){
             next_part();
             return temp;
@@ -328,4 +350,6 @@ add support for negative/positive numbers, spaces, and paranthesis
 use switch statement instead of series of if statements
 
 return \0 instead of EOF
+
+Clean up code, increase readiblity, remove redundancy
 */
