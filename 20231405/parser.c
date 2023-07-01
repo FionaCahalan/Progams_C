@@ -4,25 +4,23 @@
 #include <math.h>
 #include <setjmp.h>
 
-static jmp_buf jb;
+static jmp_buf jb;  //errors handling
 
 struct node;
-
 struct node_vtable{
 	void (*print)(struct node *curr);
     int (*evaluate)(struct node *curr);
 };
 
-#define NUM 0
-#define OPER 1
-#define L_PAREN 2
-#define R_PAREN 3
+// types of symbols/parts
+#define S_NUM 0
+#define S_OPER 1
+#define S_L_PAREN 2
+#define S_R_PAREN 3
 
 struct node{
 	struct node_vtable *ops;
 	int type;
-    // 0 = number
-	// 1 = function
 };
 
 struct opr{
@@ -148,9 +146,10 @@ static char peak_char(void){
     else return -1;
 }
 
-#define NO_NUM 1
-#define UNKNOWN_SYM 2
-#define MISS_PAREN 3
+// errors types
+#define E_NO_NUM 1
+#define E_UNKNOWN_SYM 2
+#define E_MISS_PAREN 3
 
 // grabs characters to form next symbol (i.e. number or operator)
 static void next_part(void){
@@ -166,12 +165,12 @@ static void next_part(void){
 		}
 		struct num *tmp = calloc(sizeof *tmp, 1);
 		tmp->number = number;
-		tmp->super.type = NUM;
+		tmp->super.type = S_NUM;
         tmp->super.ops = &number_v;
 		symbol = &(tmp->super);
 	} else if (ch != -1){
 		struct opr *tmp = calloc(sizeof *tmp, 1);
-		tmp->super.type = OPER;
+		tmp->super.type = S_OPER;
         switch(ch){
         case '*':
 			tmp->super.ops = &multiply;
@@ -186,15 +185,13 @@ static void next_part(void){
 			tmp->super.ops = &subtract;
             break;
         case '(':
-            tmp->super.type = L_PAREN;
+            tmp->super.type = S_L_PAREN;
             break;
         case ')':
-            tmp->super.type = R_PAREN;
-            // return;
+            tmp->super.type = S_R_PAREN;
             break;
 		default:
-// printf("%d %d\n", c_idx, ch);
-            longjmp(jb, UNKNOWN_SYM);
+            longjmp(jb, E_UNKNOWN_SYM);
         }
 		symbol = &tmp->super;
 	} else {
@@ -211,42 +208,41 @@ static struct node *factor(void){
         next_part();
     }
 
-    if (symbol->type == NUM) {
+    if (symbol->type == S_NUM) {
         temp = symbol;
         next_part();
         return temp;
     }else if(symbol->ops == &subtract){
         struct opr *neg = calloc(sizeof *neg, 1);
-        neg->super.type = OPER;
+        neg->super.type = S_OPER;
         neg->super.ops = &multiply;
 
         next_part();
         struct num *neg_1 = calloc(sizeof *neg_1, 1);
         neg_1->number = -1;
-        neg_1->super.type = NUM;
+        neg_1->super.type = S_NUM;
         neg_1->super.ops = &number_v;
         neg->left_c = &neg_1->super;
         neg->right_c = factor();
         return &neg->super;
-    }else if (symbol->type == L_PAREN) {
+    }else if (symbol->type == S_L_PAREN) {
         next_part();
         temp = expression();
-        if(symbol->type == R_PAREN){
+        if(symbol->type == S_R_PAREN){
             next_part();
             return temp;
         } else{
-            longjmp(jb, MISS_PAREN);
+            longjmp(jb, E_MISS_PAREN);
         }
     }
-    longjmp(jb, NO_NUM);
-    //return NULL;
+    longjmp(jb, E_NO_NUM);
 }
 
 // a term can be any number of factors seperated by * or /
 // returns the head of the binary tree for the term
 static struct node *term(void){
     struct node *head = factor();
-    while (symbol != NULL && symbol->type == OPER && (symbol->ops == &multiply || symbol->ops == &divide)){
+    while (symbol != NULL && (symbol->ops == &multiply || symbol->ops == &divide)){
         struct opr *temp = (struct opr *) symbol;
         temp->left_c = head;
         head = symbol;
@@ -260,9 +256,7 @@ static struct node *term(void){
 // returns the head of the binary tree for an expression
 static struct node *expression(void){
     struct node *head = term();
-    // printf("%d\n", symbol->type);
-    while (symbol != NULL && symbol->type == OPER && (symbol->ops == &addition || symbol->ops == &subtract)){
-        // printf("loopy %d\n", c_idx);
+    while (symbol != NULL && (symbol->ops == &addition || symbol->ops == &subtract)){
         struct opr *temp = (struct opr *) symbol;
         temp->left_c = head;
         head = symbol;
@@ -274,7 +268,7 @@ static struct node *expression(void){
 
 // prints tree inorder, effectively printing original input
 static void print_tree(struct node *curr){
-    if (curr->type == NUM){
+    if (curr->type == S_NUM){
         curr->ops->print(curr);
     } else {
         print_tree(((struct opr *)curr)->left_c);
@@ -286,7 +280,7 @@ static void print_tree(struct node *curr){
 // prints tree indented, preorder
 static void print_tree1(struct node *curr, int level){
     printf("%-*s", level*3, "");
-    if (curr->type == NUM){
+    if (curr->type == S_NUM){
         curr->ops->print(curr);
         printf("\n");
     } else {
@@ -312,15 +306,15 @@ int main(int argc, char *argv[]){
                 printf("\n");
                 print_tree1(head, 0);
                 break;
-            case NO_NUM:
+            case E_NO_NUM:
                 printf("number expected, no num before %c\n", peak_char());
                 exit(1);
                 break;
-            case UNKNOWN_SYM:
+            case E_UNKNOWN_SYM:
                 printf("unknown symbol before %c\n", peak_char());
                 exit(1);
                 break;
-            case MISS_PAREN:
+            case E_MISS_PAREN:
                 printf("missing a parenthesis \n");
                 exit(1);
                 break;
@@ -333,7 +327,7 @@ int main(int argc, char *argv[]){
 }
 
 
-/*
+/* ****GRAMMAR****
 Expression
 term {("+"|"-") term}
 
@@ -341,15 +335,11 @@ term
 factor {("*"|"/") factor}
 
 factor
-number | "(" expression ")"
+(- | + factor ) | number | "(" expression ")"
 
 number
 "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
 
-add support for negative/positive numbers, spaces, and paranthesis
-use switch statement instead of series of if statements
 
-return \0 instead of EOF
-
-Clean up code, increase readiblity, remove redundancy
+Clean up code, increase readiblity, remove redundancy, add comments
 */
