@@ -4,8 +4,9 @@
 #include <math.h>
 #include <setjmp.h>
 
-static jmp_buf jb;  //errors handling
-static int var_value;
+static jmp_buf jb;                  //errors handling
+static struct node *vars[256];      //array of pointers to the variables, indexed by the character
+static struct node *x_var;          //pointer to x, for use in graphing
 
 struct node;
 struct node_vtable{
@@ -37,7 +38,8 @@ struct num{
 
 struct var{
     struct node super;
-    int *value;
+    int value;
+    char ch;
 };
 
 
@@ -75,7 +77,7 @@ static int eval_num(struct node *curr){
 }
 
 static int eval_var(struct node *curr){
-    return *((struct var*)curr)->value;
+    return ((struct var*)curr)->value;
 }
 
 static void print_mul(struct node *curr){
@@ -104,7 +106,7 @@ static void print_num(struct node *curr){
 
 static void print_var(struct node *curr){
     (void) curr;
-    printf("x");
+    printf("%c", ((struct var *) curr)->ch);
 }
 
 static struct node_vtable multiply = {
@@ -150,9 +152,11 @@ static unsigned c_idx = 0;
 //static char equation[] = "3+*7";                      //21
 //static char equation[] = "3*4+6a";                    //no implicite multiplication
 //statis char equation[] = "a6"                         //no implicite multiplication
-//static char equation[] = "3(45)";                     // no implicite multiplication
+//static char equation[] = "3(45)";                     //no implicite multiplication
 //static char equation[] = "(3)4";                      //no implicite multiplication
-static char equation[] = "3*4+6*a";                   // x = 0, x = 12
+//static char equation[] = "a*a";
+//static char equation[] = "3*4+6*a";                   // x = 0, x = 12
+static char equation[] = "a+b+2";
 static struct node* symbol;
 
 // returns current char, increments curr char
@@ -194,12 +198,19 @@ static void next_part(void){
 		tmp->super.type = S_NUM;
         tmp->super.ops = &number_v;
 		symbol = &(tmp->super);
+    // if letter (variable)
 	} else if (ch != -1 && ch >= 'A' && ch <= 'z' && !(ch > 'Z' && ch < 'a')) {
-        struct var *tmp = calloc(sizeof *tmp, 1);
-        tmp->value = &var_value;
-        tmp->super.type = S_NUM;
-        tmp->super.ops = &variable_v;
-        symbol = &(tmp->super);
+        if(vars[ch] == NULL) {
+            struct var *tmp = calloc(sizeof *tmp, 1);
+            tmp->ch = ch;
+            tmp->super.type = S_NUM;
+            tmp->super.ops = &variable_v;
+            symbol = &(tmp->super);
+            x_var = symbol;
+            vars[ch] = symbol;
+        } else {
+            symbol = vars[ch];
+        }
     } else if (ch != -1){   // else must be other symbol, operator, or unknown symbol
 		struct opr *tmp = calloc(sizeof *tmp, 1);
 		tmp->super.type = S_OPER;
@@ -337,12 +348,14 @@ int main(int argc, char *argv[]){
         // error handling
         switch(setjmp(jb)){
             case 0:
+                printf("happiness\n");
                 struct node *head = expression();
                 //int answer = head->ops->evaluate(head);
                 //printf("%d\n", answer);
+
                 for(int i = 0; i <= 10; i++) {
-                    var_value = i;
-                    printf("x = %d, y = %d\n", i, head->ops->evaluate(head));
+                    ((struct var *)x_var)->value = i;
+                    printf("var = %d, y = %d\n", i, head->ops->evaluate(head));
                 }
                 
                 print_tree(head);
@@ -373,6 +386,9 @@ int main(int argc, char *argv[]){
 	}
 }
 
+// struct variables hold the integer, put them in a pointer array, assume the first variable
+// in the pointer array is x. When we encounter a variable, check the pointer array, if it's not in there then
+// create a new one, else return that one. Just use 256.
 
 /* ****GRAMMAR****
 Expression
@@ -387,6 +403,4 @@ factor
 number
 "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
 
-
-Clean up code, increase readiblity, remove redundancy, add comments
 */
