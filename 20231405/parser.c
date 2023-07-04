@@ -3,9 +3,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <setjmp.h>
+#include <SDL.h>
 
 static jmp_buf jb;                  //errors handling
-static struct node *vars[256];      //array of pointers to the variables, indexed by the character
+static struct node *vars['z' + 1];      //array of pointers to the variables, indexed by the character
 static struct node *x_var;          //pointer to x, for use in graphing
 
 struct node;
@@ -340,6 +341,30 @@ static void print_tree1(struct node *curr, int level){
     }
 }
 
+static int quitting;
+static SDL_Window *graph;
+static SDL_Renderer *rend;
+static SDL_Texture *tex;
+
+static void closeWindow(void){
+    SDL_DestroyRenderer(rend);
+    SDL_DestroyWindow(graph);
+    SDL_DestroyTexture(tex);
+}
+
+static void handle_event(SDL_Event *event){
+    switch(event->type){
+        case SDL_WINDOWEVENT:
+            if(event->window.event == SDL_WINDOWEVENT_CLOSE){
+                closeWindow();
+            }
+            break;
+        case SDL_QUIT:
+            quitting = 1;
+            break; 
+    }
+}
+
 int main(int argc, char *argv[]){
 	(void)argc;
 	(void)argv;
@@ -348,14 +373,13 @@ int main(int argc, char *argv[]){
         // error handling
         switch(setjmp(jb)){
             case 0:
-                printf("happiness\n");
                 struct node *head = expression();
                 //int answer = head->ops->evaluate(head);
                 //printf("%d\n", answer);
 
                 for(int i = 0; i <= 10; i++) {
                     ((struct var *)x_var)->value = i;
-                    printf("var = %d, y = %d\n", i, head->ops->evaluate(head));
+                    printf("%c = %d, y = %d\n", ((struct var *)x_var)->ch, i, head->ops->evaluate(head));
                 }
                 
                 print_tree(head);
@@ -384,11 +408,28 @@ int main(int argc, char *argv[]){
                 break;
         }
 	}
+
+    // initializing stuff
+    if(SDL_Init(SDL_INIT_EVERYTHING)<0){
+        printf("Failed SDL_Init %s\n", SDL_GetError());
+        return 1;
+    }
+
+    // creating the graph
+    graph = SDL_CreateWindow("Graph", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 300, 300, 0);
+    rend = SDL_CreateRenderer(graph, -1, 0);
+    tex = SDL_CreateTexture(rend, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 300, 300);
+
+    // while graph has not been closed
+    while(!quitting) {
+        SDL_Event e;
+
+        while(!quitting && SDL_WaitEvent(&e)){
+            handle_event(&e);
+        }
+    }
 }
 
-// struct variables hold the integer, put them in a pointer array, assume the first variable
-// in the pointer array is x. When we encounter a variable, check the pointer array, if it's not in there then
-// create a new one, else return that one. Just use 256.
 
 /* ****GRAMMAR****
 Expression
