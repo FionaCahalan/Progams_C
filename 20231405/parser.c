@@ -341,10 +341,38 @@ static void print_tree1(struct node *curr, int level){
     }
 }
 
+
+#DEFINE W_HEIGHT 300;
+#DEFINE W_WIDTH 300;
 static int quitting;
 static SDL_Window *graph;
 static SDL_Renderer *rend;
 static SDL_Texture *tex;
+
+static void display_graph(){
+    if (!graph)
+        return;
+
+    unsigned *pixels_for_window = calloc(width, height);
+
+    for (int i = 0; i < width; i++){
+        ((struct var *)x_var)->value = i;
+        for (int j = 0; j < height; j++){
+            pixels_for_window[j*width + i] = 0x000000;
+        }
+        int ans = head->ops->evaluate(head);
+        if (ans < height)
+            pixels_for_window[ans*width + i] = 0xffffff;
+    }
+
+    SDL_RECT recent_texrect = (SDL_Rect){.x=0, .y=0, .w = width, .h = height};
+    SDL_LockTexture(tex, /*STUFF*/);
+    memcpy(/**/ STUFF);
+    SDL_UnlockTexture(tex);
+
+    SDL_RenderPresent(rend);
+    free(pixels_for_window);
+}
 
 static void closeWindow(void){
     SDL_DestroyRenderer(rend);
@@ -416,9 +444,9 @@ int main(int argc, char *argv[]){
     }
 
     // creating the graph
-    graph = SDL_CreateWindow("Graph", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 300, 300, 0);
+    graph = SDL_CreateWindow("Graph", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, W_WIDTH, W_HEIGHT, 0);
     rend = SDL_CreateRenderer(graph, -1, 0);
-    tex = SDL_CreateTexture(rend, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 300, 300);
+    tex = SDL_CreateTexture(rend, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, W_WIDTH, W_HEIGHT);
 
     // while graph has not been closed
     while(!quitting) {
