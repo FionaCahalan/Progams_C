@@ -5,6 +5,7 @@
 #include <setjmp.h>
 #include <SDL.h>
 #include <signal.h>
+typedef double intfp;
 
 static jmp_buf jb;                  //errors handling
 static struct node *vars['z' + 1];      //array of pointers to the variables, indexed by the character
@@ -13,7 +14,7 @@ static struct node *x_var;          //pointer to x, for use in graphing
 struct node;
 struct node_vtable{
 	void (*print)(struct node *curr);
-    int (*evaluate)(struct node *curr);
+    intfp (*evaluate)(struct node *curr);
 };
 
 // types of symbols/parts
@@ -35,50 +36,50 @@ struct opr{
 
 struct num{
 	struct node super;
-	int number;
+	intfp number;
 };
 
 struct var{
     struct node super;
-    int value;
+    intfp value;
     char ch;
 };
 
 
 // function to evalulate operation or return number
-static int mul(struct node *curr){
+static intfp mul(struct node *curr){
 	struct opr *op = (struct opr *)curr;
-    int a = op->left_c->ops->evaluate(op->left_c);
-    int b = op->right_c->ops->evaluate(op->right_c);
+    intfp a = op->left_c->ops->evaluate(op->left_c);
+    intfp b = op->right_c->ops->evaluate(op->right_c);
     return a * b;
 }
 
-static int divi(struct node *curr){
+static intfp divi(struct node *curr){
 	struct opr *op = (struct opr *)curr;
-    int a = op->left_c->ops->evaluate(op->left_c);
-    int b = op->right_c->ops->evaluate(op->right_c);
+    intfp a = op->left_c->ops->evaluate(op->left_c);
+    intfp b = op->right_c->ops->evaluate(op->right_c);
     return a / b;
 }
 
-static int add(struct node *curr){
+static intfp add(struct node *curr){
 	struct opr *op = (struct opr *)curr;
-    int a = op->left_c->ops->evaluate(op->left_c);
-    int b = op->right_c->ops->evaluate(op->right_c);
+    intfp a = op->left_c->ops->evaluate(op->left_c);
+    intfp b = op->right_c->ops->evaluate(op->right_c);
     return a + b;
 }
 
-static int sub(struct node *curr){
+static intfp sub(struct node *curr){
 	struct opr *op = (struct opr *)curr;
-    int a = op->left_c->ops->evaluate(op->left_c);
-    int b = op->right_c->ops->evaluate(op->right_c);
+    intfp a = op->left_c->ops->evaluate(op->left_c);
+    intfp b = op->right_c->ops->evaluate(op->right_c);
     return a - b;
 }
 
-static int eval_num(struct node *curr){
+static intfp eval_num(struct node *curr){
     return ((struct num*)curr)->number;
 }
 
-static int eval_var(struct node *curr){
+static intfp eval_var(struct node *curr){
     return ((struct var*)curr)->value;
 }
 
@@ -103,7 +104,7 @@ static void print_sub(struct node *curr){
 }
 
 static void print_num(struct node *curr){
-    printf("%d", curr->ops->evaluate(curr));
+    printf("%f", curr->ops->evaluate(curr));
 }
 
 static void print_var(struct node *curr){
@@ -160,6 +161,7 @@ static unsigned c_idx = 0;
 //static char equation[] = "3*4+6*a";                   // x = 0, x = 12
 //static char equation[] = "a+b+2";
 static char equation[] = "1/x";
+//static char equation[] = "x";
 //static char equation[] = "x*x/400";
 static struct node* symbol;
 
@@ -192,7 +194,7 @@ static void next_part(void){
     }
     // if number
 	if(ch != -1 && ch >= '0' && ch <= '9'){
-		int number = ch - '0';
+		intfp number = ch - '0';
 		while(peak_char() != -1 && peak_char() >= '0' && peak_char() <= '9'){
 			ch = next_char();
 			number = number * 10 + (ch - '0');
@@ -366,16 +368,18 @@ static void display_graph(struct node *head){
     unsigned *pixels_for_window = calloc(W_WIDTH * sizeof (unsigned), W_HEIGHT);
 
     for (volatile int i = -W_WIDTH/2; i < W_WIDTH/2; i++){
-        ((struct var *)x_var)->value = i;
+        ((struct var *)x_var)->value = i*0.1;
         
         for (int j = 0; j < W_HEIGHT; j++){
             pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0x000000;
         }
         switch(sigsetjmp(slj, 1)){
             case 0:
-                int ans = head->ops->evaluate(head);
-                if (ans < W_HEIGHT/2 && ans >= 0)
-                    pixels_for_window[(W_HEIGHT/2 - ans)*W_WIDTH + i + W_WIDTH/2] = 0xffffff;
+                intfp eval_ans = head->ops->evaluate(head);
+                int ans = nearbyint(eval_ans*10) + W_HEIGHT/2;
+
+                if (ans < W_HEIGHT && ans >= 0)
+                    pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + i + W_WIDTH/2] = 0xffffff;
                 break;
             default:
                 signal(SIGFPE, fpe_handler);
@@ -419,8 +423,8 @@ static void handle_event(SDL_Event *event){
                 // for some reason this event is called "exposed" and not "maximized"
                 // could maybe be some crazy stuff that happens if this event is dealt with for a closed window.
                 if(graph){
-                    	SDL_RenderCopy(rend, tex, NULL, NULL);
-	                    SDL_RenderPresent(rend);
+                    SDL_RenderCopy(rend, tex, NULL, NULL);
+                    SDL_RenderPresent(rend);
                 }
             }
 
@@ -445,10 +449,10 @@ int main(int argc, char *argv[]){
                 //int answer = head->ops->evaluate(head);
                 //printf("%d\n", answer);
 
-                /*
+                /*                
                 for(int i = 0; i <= 10; i++) {
                     ((struct var *)x_var)->value = i;
-                    printf("%c = %d, y = %d\n", ((struct var *)x_var)->ch, i, head->ops->evaluate(head));
+                    printf("%c = %f, y = %f\n", ((struct var *)x_var)->ch, i, head->ops->evaluate(head));
                 }
                 */
                 
