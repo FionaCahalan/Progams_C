@@ -4,6 +4,7 @@
 #include <math.h>
 #include <setjmp.h>
 #include <SDL.h>
+#include <signal.h>
 
 static jmp_buf jb;                  //errors handling
 static struct node *vars['z' + 1];      //array of pointers to the variables, indexed by the character
@@ -157,7 +158,9 @@ static unsigned c_idx = 0;
 //static char equation[] = "(3)4";                      //no implicite multiplication
 //static char equation[] = "a*a";
 //static char equation[] = "3*4+6*a";                   // x = 0, x = 12
-static char equation[] = "a+b+2";
+//static char equation[] = "a+b+2";
+static char equation[] = "1/x";
+//static char equation[] = "x*x/400";
 static struct node* symbol;
 
 // returns current char, increments curr char
@@ -342,36 +345,61 @@ static void print_tree1(struct node *curr, int level){
 }
 
 
-#DEFINE W_HEIGHT 300;
-#DEFINE W_WIDTH 300;
+#define W_HEIGHT 300
+#define W_WIDTH 300
 static int quitting;
 static SDL_Window *graph;
 static SDL_Renderer *rend;
 static SDL_Texture *tex;
 
-static void display_graph(){
+static sigjmp_buf slj;
+
+static void fpe_handler(int sig){
+    siglongjmp(slj, sig);
+}
+
+static void display_graph(struct node *head){
+    signal(SIGFPE, fpe_handler);
     if (!graph)
         return;
 
-    unsigned *pixels_for_window = calloc(width, height);
+    unsigned *pixels_for_window = calloc(W_WIDTH * sizeof (unsigned), W_HEIGHT);
 
-    for (int i = 0; i < width; i++){
+    for (volatile int i = -W_WIDTH/2; i < W_WIDTH/2; i++){
         ((struct var *)x_var)->value = i;
-        for (int j = 0; j < height; j++){
-            pixels_for_window[j*width + i] = 0x000000;
+        
+        for (int j = 0; j < W_HEIGHT; j++){
+            pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0x000000;
         }
-        int ans = head->ops->evaluate(head);
-        if (ans < height)
-            pixels_for_window[ans*width + i] = 0xffffff;
+        switch(sigsetjmp(slj, 1)){
+            case 0:
+                int ans = head->ops->evaluate(head);
+                if (ans < W_HEIGHT/2 && ans >= 0)
+                    pixels_for_window[(W_HEIGHT/2 - ans)*W_WIDTH + i + W_WIDTH/2] = 0xffffff;
+                break;
+            default:
+                signal(SIGFPE, fpe_handler);
+                break;
+        }
     }
+    void *pixels;
+    int pitch;
 
-    SDL_RECT recent_texrect = (SDL_Rect){.x=0, .y=0, .w = width, .h = height};
-    SDL_LockTexture(tex, /*STUFF*/);
-    memcpy(/**/ STUFF);
+    SDL_Rect recent_texrect = (SDL_Rect){.x=0, .y=0, .w = W_WIDTH, .h = W_HEIGHT};
+    SDL_LockTexture(tex, &recent_texrect, &pixels, &pitch);
+    memcpy(pixels, pixels_for_window, pitch*W_HEIGHT);
     SDL_UnlockTexture(tex);
+
+    /*
+    SDL_Rect recent_srcrect = (SDL_Rect){.x = 0, .y = 0, .w = W_WIDTH, .h = W_HEIGHT};
+	SDL_Rect recent_dstrect = (SDL_Rect){.x = 0, .y = 0, .w = W_HEIGHT, .h = W_HEIGHT};
+	SDL_RenderCopy(rend, tex, &recent_srcrect, &recent_dstrect);
+    */
+    SDL_RenderCopy(rend, tex, NULL, NULL);
 
     SDL_RenderPresent(rend);
     free(pixels_for_window);
+//printf("done");
 }
 
 static void closeWindow(void){
@@ -386,10 +414,21 @@ static void handle_event(SDL_Event *event){
             if(event->window.event == SDL_WINDOWEVENT_CLOSE){
                 closeWindow();
             }
+
+            if (event->window.event == SDL_WINDOWEVENT_EXPOSED){
+                // for some reason this event is called "exposed" and not "maximized"
+                // could maybe be some crazy stuff that happens if this event is dealt with for a closed window.
+                if(graph){
+                    	SDL_RenderCopy(rend, tex, NULL, NULL);
+	                    SDL_RenderPresent(rend);
+                }
+            }
+
             break;
         case SDL_QUIT:
             quitting = 1;
             break; 
+        
     }
 }
 
@@ -397,18 +436,21 @@ int main(int argc, char *argv[]){
 	(void)argc;
 	(void)argv;
 	if(peak_char() != -1){ 
+        struct node *head;
         next_part();
         // error handling
         switch(setjmp(jb)){
             case 0:
-                struct node *head = expression();
+                head = expression();
                 //int answer = head->ops->evaluate(head);
                 //printf("%d\n", answer);
 
+                /*
                 for(int i = 0; i <= 10; i++) {
                     ((struct var *)x_var)->value = i;
                     printf("%c = %d, y = %d\n", ((struct var *)x_var)->ch, i, head->ops->evaluate(head));
                 }
+                */
                 
                 print_tree(head);
                 printf("\n");
@@ -435,25 +477,26 @@ int main(int argc, char *argv[]){
                 exit(1);
                 break;
         }
-	}
+	
+        // initializing stuff
+        if(SDL_Init(SDL_INIT_EVERYTHING)<0){
+            printf("Failed SDL_Init %s\n", SDL_GetError());
+            return 1;
+        }
 
-    // initializing stuff
-    if(SDL_Init(SDL_INIT_EVERYTHING)<0){
-        printf("Failed SDL_Init %s\n", SDL_GetError());
-        return 1;
-    }
+        // creating the graph
+        graph = SDL_CreateWindow("Graph", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, W_WIDTH, W_HEIGHT, 0);
+        rend = SDL_CreateRenderer(graph, -1, 0);
+        tex = SDL_CreateTexture(rend, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, W_WIDTH, W_HEIGHT);
 
-    // creating the graph
-    graph = SDL_CreateWindow("Graph", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, W_WIDTH, W_HEIGHT, 0);
-    rend = SDL_CreateRenderer(graph, -1, 0);
-    tex = SDL_CreateTexture(rend, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, W_WIDTH, W_HEIGHT);
+        display_graph(head);
+        // while graph has not been closed
+        while(!quitting) {
+            SDL_Event e;
 
-    // while graph has not been closed
-    while(!quitting) {
-        SDL_Event e;
-
-        while(!quitting && SDL_WaitEvent(&e)){
-            handle_event(&e);
+            while(!quitting && SDL_WaitEvent(&e)){
+                handle_event(&e);
+            }
         }
     }
 }
