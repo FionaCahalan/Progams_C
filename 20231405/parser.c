@@ -83,6 +83,7 @@ static intfp eval_var(struct node *curr){
     return ((struct var*)curr)->value;
 }
 
+// function to print operator, variable, or number
 static void print_mul(struct node *curr){
 	(void) curr;
     printf("*");
@@ -347,20 +348,22 @@ static void print_tree1(struct node *curr, int level){
 }
 
 
-#define W_HEIGHT 300
-#define W_WIDTH 300
+#define W_HEIGHT 500
+#define W_WIDTH 500
+#define ZOOM 20.0
 static int quitting;
 static SDL_Window *graph;
 static SDL_Renderer *rend;
 static SDL_Texture *tex;
-
 static sigjmp_buf slj;
 
+// handles floating point exception
 static void fpe_handler(int sig){
     siglongjmp(slj, sig);
 }
 
 static void display_graph(struct node *head){
+    // declares handler to OS
     signal(SIGFPE, fpe_handler);
     if (!graph)
         return;
@@ -368,20 +371,23 @@ static void display_graph(struct node *head){
     unsigned *pixels_for_window = calloc(W_WIDTH * sizeof (unsigned), W_HEIGHT);
 
     for (volatile int i = -W_WIDTH/2; i < W_WIDTH/2; i++){
-        ((struct var *)x_var)->value = i*0.1;
+        ((struct var *)x_var)->value = i*(1/ZOOM);
         
+        // effectively colors window black
         for (int j = 0; j < W_HEIGHT; j++){
             pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0x000000;
         }
+
         switch(sigsetjmp(slj, 1)){
             case 0:
                 intfp eval_ans = head->ops->evaluate(head);
-                int ans = nearbyint(eval_ans*10) + W_HEIGHT/2;
+                int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
 
+                // place white point if in range
                 if (ans < W_HEIGHT && ans >= 0)
                     pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + i + W_WIDTH/2] = 0xffffff;
                 break;
-            default:
+            default:    // if floating point exception (i.e dividing by 0), don't plot that point
                 signal(SIGFPE, fpe_handler);
                 break;
         }
@@ -390,6 +396,7 @@ static void display_graph(struct node *head){
     int pitch;
 
     SDL_Rect recent_texrect = (SDL_Rect){.x=0, .y=0, .w = W_WIDTH, .h = W_HEIGHT};
+    // lock the whole texture
     SDL_LockTexture(tex, &recent_texrect, &pixels, &pitch);
     memcpy(pixels, pixels_for_window, pitch*W_HEIGHT);
     SDL_UnlockTexture(tex);
@@ -399,6 +406,7 @@ static void display_graph(struct node *head){
 	SDL_Rect recent_dstrect = (SDL_Rect){.x = 0, .y = 0, .w = W_HEIGHT, .h = W_HEIGHT};
 	SDL_RenderCopy(rend, tex, &recent_srcrect, &recent_dstrect);
     */
+    // paste all of the texture onto all of the renderer
     SDL_RenderCopy(rend, tex, NULL, NULL);
 
     SDL_RenderPresent(rend);
@@ -432,7 +440,6 @@ static void handle_event(SDL_Event *event){
         case SDL_QUIT:
             quitting = 1;
             break; 
-        
     }
 }
 
