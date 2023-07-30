@@ -32,48 +32,87 @@ INIT_LIST_HEAD(uuuu->lh);
 }
 */
 
-#define LIST_FOR_EACH(head) \
-        for(list_node *curr = head->next; head != curr; curr = curr->next)
+/*
+iterates through each item in the list except the head
+@head: head of the list
+@pos: current position
+*/
+#define LIST_FOR_EACH(pos, head) \
+        for(pos = (head)->next; pos != head; pos = (pos)->next)
 
 struct list_node {
-    list_node *next;
-    list_node *prev;
-}
+    struct list_node *next;
+    struct list_node *prev;
+};
 
+/*
+initializes circular linked list with head as the only node
+*/
 static void list_init_head(struct list_node *head){
     head->next = head;
+    head->prev = head;
     return;
 }
 
+/*
+adds new after head
+*/
 static void list_add(struct list_node *head, struct list_node *new){
+    head->next->prev = new;
     new->next = head->next;
     head->next = new;
+    new->prev = head;
     return;
 }
 
-static struct list_node *list_remove_next(struct list_node *head){
-    struct list_node *tmp = head->next;
-    if (tmp) {
-        head->next = tmp->next;
-        tmp->next = NULL;
-        return tmp;
-    }
-    return NULL;
-}
-
-static struct list_node *list_next(struct list_node *head){
-    return head->next;
-}
-
+/* I NEED TO FIX THIS EMPTY CONDITONS, COULDN'T FIGURE OUT REFERENCE CODE*/
 static int list_empty(struct list_node *head){
     if (head->next == head)
         return 1;
     return 0;
 }
 
-static int count(struct list_node *head){
+
+/*
+deletes node
+@head: node to be deleted
+*/
+static void list_del(struct list_node *head){
+    if(!list_empty(head)){
+        head->prev->next = head->next;
+        head->next->prev = head->prev;
+    } else {
+
+    }
+    // MEMORY STILL NEEDS TO BE FREED
+    /*
+    if (!list_empty(head)){
+        struct list_node *tmp = head->next;
+        if (tmp) {
+            head->next = tmp->next;
+            head->next->prev = head;
+            tmp->next = NULL;
+            return tmp;
+        }
+        return NULL;
+    }
+    */
+}
+
+static struct list_node *list_next(struct list_node *head){
+    return head->next;
+}
+
+/*
+returns the number of nodes in the list
+@head: head of the list
+*/
+static int list_count(struct list_node *head){
+    if (list_empty(head))
+        return 0;
     int total = 1;
-    LIST_FOR_EACH(head){
+    struct list_node *pos;
+    LIST_FOR_EACH(pos, head){
         total++;
     }
     return total;
