@@ -19,6 +19,8 @@ int main(int argc, char *argv[]){
     
     struct list_item *curr = my_list;
 
+    printf("total: %d\n", list_count(&my_list->super));
+
     for(int i = 0; i < 10; i++){
         //list_add(&curr->super, &(calloc(sizeof *curr, 1)->super));
         list_add(&curr->super, (struct list_node *) calloc(sizeof *curr, 1));
@@ -33,6 +35,7 @@ int main(int argc, char *argv[]){
 
     printf("total: %d\n", list_count(&my_list->super));
 
+    list_del(list_next(&my_list->super));
     list_del(list_next(&my_list->super));
    
     LIST_FOR_EACH(position, &my_list->super){

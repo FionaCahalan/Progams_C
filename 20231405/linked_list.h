@@ -85,32 +85,23 @@ static void list_del(struct list_node *head){
 
     }
     // MEMORY STILL NEEDS TO BE FREED
-    /*
-    if (!list_empty(head)){
-        struct list_node *tmp = head->next;
-        if (tmp) {
-            head->next = tmp->next;
-            head->next->prev = head;
-            tmp->next = NULL;
-            return tmp;
-        }
-        return NULL;
-    }
-    */
 }
 
 static struct list_node *list_next(struct list_node *head){
     return head->next;
 }
 
+static struct list_node *list_prev(struct list_node *head){
+    return head->prev;
+}
 /*
-returns the number of nodes in the list
+returns the number of nodes in the list, excluding the head
 @head: head of the list
 */
 static int list_count(struct list_node *head){
     if (list_empty(head))
         return 0;
-    int total = 1;
+    int total = 0;
     struct list_node *pos;
     LIST_FOR_EACH(pos, head){
         total++;

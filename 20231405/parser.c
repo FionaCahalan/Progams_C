@@ -5,6 +5,7 @@
 #include <setjmp.h>
 #include <SDL.h>
 #include <signal.h>
+#include "linked_list.h"
 typedef double intfp;
 
 static jmp_buf jb;                  //errors handling
@@ -362,6 +363,12 @@ static void fpe_handler(int sig){
     siglongjmp(slj, sig);
 }
 
+struct list_item{
+    struct list_node super;
+    intfp x;
+    int y;
+};
+
 static void display_graph(struct node *head){
     // declares handler to OS
     signal(SIGFPE, fpe_handler);
@@ -370,27 +377,98 @@ static void display_graph(struct node *head){
 
     unsigned *pixels_for_window = calloc(W_WIDTH * sizeof (unsigned), W_HEIGHT);
 
+    struct list_item *ans_head = calloc(sizeof *ans_head, 1);
+    list_init_head(&ans_head->super);
+
     for (volatile int i = -W_WIDTH/2; i < W_WIDTH/2; i++){
-        ((struct var *)x_var)->value = i*(1/ZOOM);
-        
         // effectively colors window black
         for (int j = 0; j < W_HEIGHT; j++){
-            pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0x000000;
+            pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0x000000; 
         }
-
+        // sets value of variable representing x axis for calculations, "zooming" in
+        ((struct var *)x_var)->value = i*(1/ZOOM);
         switch(sigsetjmp(slj, 1)){
             case 0:
                 intfp eval_ans = head->ops->evaluate(head);
+
                 int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
 
                 // place white point if in range
-                if (ans < W_HEIGHT && ans >= 0)
+                if (ans < W_HEIGHT && ans >= 0) {
                     pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + i + W_WIDTH/2] = 0xffffff;
+                    struct list_item *ans_new = calloc(sizeof *ans_new, 1);
+                    ans_new->x =  i;
+                    ans_new->y = ans;
+                    list_add((&ans_head->super)->prev, &ans_new->super);
+                }
                 break;
             default:    // if floating point exception (i.e dividing by 0), don't plot that point
                 signal(SIGFPE, fpe_handler);
                 break;
         }
+    }
+
+    
+    /*
+    // Fill in holes in graph (sequential points with vastly different y values)
+    struct list_node *pos;
+    LIST_FOR_EACH(pos, &ans_head->super){
+        struct list_item *first = (struct list_item *) pos;
+        struct list_item *second = (struct list_item *) pos->next;
+        if (pos->next != ans_head && first->y - second->y > 1){
+            int new_x = (first->x + second->x)/2;
+            ((struct var *)x_var)->value = new_x*(1/ZOOM);
+            intfp eval_ans = head->ops->evaluate(head);
+            int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
+
+            // place white point if in range
+            if (ans < W_HEIGHT && ans >= 0) {
+                pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + new_x + W_WIDTH/2] = 0xffffff;
+                struct list_item *ans_new = calloc(sizeof *ans_new, 1);
+                ans_new->x = nearbyint(new_x);
+                ans_new->y = ans;
+                list_add(pos, &ans_new->super);
+printf("Added new point between %d %d count: %d\n", first->x, second->x, list_count(&ans_head->super));
+            }
+        }
+        // ADD ERROR CHECKING!
+    }
+    */
+    // Fill in holes in graph (sequential points with vastly different y values)
+    struct list_node *pos = (&(ans_head->super))->next;
+    while(pos != &ans_head->super){
+        struct list_item *first = (struct list_item *) pos;
+        struct list_item *second = (struct list_item *) pos->next;
+        if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1)){
+            
+            double new_x = (first->x + second->x)/2;
+            ((struct var *)x_var)->value = new_x*(1/ZOOM);
+            intfp eval_ans = head->ops->evaluate(head);
+            int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
+
+            // place white (RED) point if in range
+            if (ans < W_HEIGHT && ans >= 0) {
+                int x_val = nearbyint(second->x);
+                pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + x_val + W_WIDTH/2] = 0xff0000;
+                struct list_item *ans_new = calloc(sizeof *ans_new, 1);
+                ans_new->x = new_x;
+                ans_new->y = ans;
+                list_add(pos, &ans_new->super);
+printf("Added new point between %f %f y values: %d %d %d count: %d\n", first->x, second->x, first->y, second->y, ans_new->y, list_count(&ans_head->super));
+                if (ans_new->y == first->y){
+                    pos = pos->next;
+printf("moving\n");
+                } else if (ans_new->y == second->y){
+                    pos = pos->next->next;
+                }
+            } else {
+                pos = pos->next;
+            }
+        } else {
+            pos = pos->next;
+// printf("moving\n");
+        }
+        // ADD ERROR CHECKING!
     }
     void *pixels;
     int pitch;
