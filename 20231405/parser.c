@@ -1,3 +1,23 @@
+/* ****GRAMMAR****
+Expression
+term {("+"|"-") term}
+
+term
+factor {("*"|"/") factor}
+
+factor
+(- | + factor ) | number | "(" expression ")" || variable | trig "(" expression ")"
+
+number
+"0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
+
+variable
+Uppercase or lowercase letter
+
+trig
+"sin" | "cos" | "tan" | "csc" | "sec" | "cot"
+*/
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +37,19 @@ struct node_vtable{
 	void (*print)(struct node *curr);
     intfp (*evaluate)(struct node *curr);
 };
+
+/*
+Add parsing trig functions
+
+fix the wholes, maybe by leaving the NaN values in the linked list 
+instead of averaging between two xs, do it a little more randomly
+by float->unsigned long long -> float and adding randomly generated
+number between the difference of the two
+
+
+*/
+
+
 
 // types of symbols/parts
 #define S_NUM 0             // number or variable
@@ -408,39 +441,14 @@ static void display_graph(struct node *head){
         }
     }
 
-    
-    /*
-    // Fill in holes in graph (sequential points with vastly different y values)
-    struct list_node *pos;
-    LIST_FOR_EACH(pos, &ans_head->super){
-        struct list_item *first = (struct list_item *) pos;
-        struct list_item *second = (struct list_item *) pos->next;
-        if (pos->next != ans_head && first->y - second->y > 1){
-            int new_x = (first->x + second->x)/2;
-            ((struct var *)x_var)->value = new_x*(1/ZOOM);
-            intfp eval_ans = head->ops->evaluate(head);
-            int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
-
-            // place white point if in range
-            if (ans < W_HEIGHT && ans >= 0) {
-                pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + new_x + W_WIDTH/2] = 0xffffff;
-                struct list_item *ans_new = calloc(sizeof *ans_new, 1);
-                ans_new->x = nearbyint(new_x);
-                ans_new->y = ans;
-                list_add(pos, &ans_new->super);
-printf("Added new point between %d %d count: %d\n", first->x, second->x, list_count(&ans_head->super));
-            }
-        }
-        // ADD ERROR CHECKING!
-    }
-    */
-    // Fill in holes in graph (sequential points with vastly different y values)
+    // Fill in holes in graph
     struct list_node *pos = (&(ans_head->super))->next;
     while(pos != &ans_head->super){
         struct list_item *first = (struct list_item *) pos;
         struct list_item *second = (struct list_item *) pos->next;
-        if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1)){
-            
+        // if too far apart
+        if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1)){    
+            // new x value for new point
             double new_x = (first->x + second->x)/2;
             ((struct var *)x_var)->value = new_x*(1/ZOOM);
             intfp eval_ans = head->ops->evaluate(head);
@@ -453,20 +461,20 @@ printf("Added new point between %d %d count: %d\n", first->x, second->x, list_co
                 struct list_item *ans_new = calloc(sizeof *ans_new, 1);
                 ans_new->x = new_x;
                 ans_new->y = ans;
+                // add point to linked list
                 list_add(pos, &ans_new->super);
-printf("Added new point between %f %f y values: %d %d %d count: %d\n", first->x, second->x, first->y, second->y, ans_new->y, list_count(&ans_head->super));
+//printf("Added new point between %f %f y values: %d %d %d count: %d\n", first->x, second->x, first->y, second->y, ans_new->y, list_count(&ans_head->super));
+                // if point is equal to the first or second point, move on
                 if (ans_new->y == first->y){
                     pos = pos->next;
-printf("moving\n");
                 } else if (ans_new->y == second->y){
                     pos = pos->next->next;
-                }
-            } else {
+                } 
+            } else { // point out of range, move on
                 pos = pos->next;
             }
         } else {
             pos = pos->next;
-// printf("moving\n");
         }
         // ADD ERROR CHECKING!
     }
@@ -489,7 +497,6 @@ printf("moving\n");
 
     SDL_RenderPresent(rend);
     free(pixels_for_window);
-//printf("done");
 }
 
 static void closeWindow(void){
@@ -591,17 +598,3 @@ int main(int argc, char *argv[]){
 }
 
 
-/* ****GRAMMAR****
-Expression
-term {("+"|"-") term}
-
-term
-factor {("*"|"/") factor}
-
-factor
-(- | + factor ) | number | "(" expression ")"
-
-number
-"0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
-
-*/
