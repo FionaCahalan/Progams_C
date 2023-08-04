@@ -22,7 +22,6 @@ int main(int argc, char *argv[]){
     printf("total: %d\n", list_count(&my_list->super));
 
     for(int i = 0; i < 10; i++){
-        //list_add(&curr->super, &(calloc(sizeof *curr, 1)->super));
         list_add(&curr->super, (struct list_node *) calloc(sizeof *curr, 1));
         curr = (struct list_item *) list_next(&curr->super);
         curr->my_int = i;

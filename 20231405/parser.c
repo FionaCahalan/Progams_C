@@ -6,7 +6,7 @@ term
 factor {("*"|"/") factor}
 
 factor
-(- | + factor ) | number | "(" expression ")" || variable | trig "(" expression ")"
+(- | + factor ) | number | "(" expression ")" || variable | trig factor
 
 number
 "0"|"1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"
@@ -56,6 +56,7 @@ number between the difference of the two
 #define S_OPER 1            // operator such as * / - +
 #define S_L_PAREN 2         // (
 #define S_R_PAREN 3         // )
+#define S_TRIG 4            // tan, cos, sec, cot, csc, sin
 
 struct node{
 	struct node_vtable *ops;
@@ -109,6 +110,37 @@ static intfp sub(struct node *curr){
     return a - b;
 }
 
+static intfp eval_cos(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return cos(op->left_c->ops->evaluate(op->left_c));
+}
+
+static intfp eval_sin(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return sin(op->left_c->ops->evaluate(op->left_c));
+}
+
+static intfp eval_tan(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return tan(op->left_c->ops->evaluate(op->left_c));
+}
+
+/*
+static intfp eval_sec(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return sec(op->left_c->ops->evaluate(op->left_c));
+}
+
+static intfp eval_csc(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return csc(op->left_c->ops->evaluate(op->left_c));
+}
+
+static intfp eval_cot(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return cot(op->left_c->ops->evaluate(op->left_c));
+} */
+
 static intfp eval_num(struct node *curr){
     return ((struct num*)curr)->number;
 }
@@ -137,6 +169,36 @@ static void print_sub(struct node *curr){
     (void) curr;
 	printf("-");
 }
+
+static void print_cos(struct node *curr){
+    (void) curr;
+    printf("cos");
+}
+
+static void print_sin(struct node *curr){
+    (void) curr;
+    printf("sin");
+}
+
+static void print_tan(struct node *curr){
+    (void) curr;
+    printf("tan");
+}
+/*
+static void print_cos(struct node *curr){
+    (void) curr;
+    printf("sec");
+}
+
+static void print_cos(struct node *curr){
+    (void) curr;
+    printf("csc");
+}
+
+static void print_cos(struct node *curr){
+    (void) curr;
+    printf("cot");
+} */
 
 static void print_num(struct node *curr){
     printf("%f", curr->ops->evaluate(curr));
@@ -167,6 +229,36 @@ static struct node_vtable subtract = {
     .evaluate = sub,
 };
 
+static struct node_vtable cosine = {
+    .print = print_cos,
+    .evaluate = eval_cos,
+};
+
+static struct node_vtable sine = {
+    .print = print_sin,
+    .evaluate = eval_sin,
+};
+
+static struct node_vtable tangent = {
+    .print = print_tan,
+    .evaluate = eval_tan,
+};
+
+/*
+static struct node_vtable secant = {
+    .print = print_sec,
+    .evaluate = eval_sec;
+};
+
+static struct node_vtable cosecant = {
+    .print = print_csc,
+    .evaluate = eval_csc;
+};
+static struct node_vtable cotangent = {
+    .print = print_cot,
+    .evaluate = eval_cot;
+};*/
+
 static struct node_vtable number_v = {
     .print = print_num,
     .evaluate = eval_num,
@@ -195,7 +287,11 @@ static unsigned c_idx = 0;
 //static char equation[] = "a*a";
 //static char equation[] = "3*4+6*a";                   // x = 0, x = 12
 //static char equation[] = "a+b+2";
-static char equation[] = "1/x";
+//static char equation[] = "ab";                        // should throw exepction
+//static char equation[] = "?";                         // should throw exception  
+//static char equation[] = "(23)";                      // should be fine                      
+static char equation[] = "sin(23)";
+//static char equation[] = "1/x";
 //static char equation[] = "x";
 //static char equation[] = "x*x/400";
 static struct node* symbol;
@@ -219,6 +315,9 @@ static char peak_char(void){
 #define E_UNKNOWN_SYM 2         // unknown symbol
 #define E_MISS_PAREN 3          // odd number of parenthesis, no parenthesis when expected
 #define E_IMPLI_MUL 4           // implicite multiplication
+#define E_RND_LETTERS 5         // multiple letters string together but not trig function, no implicite multiplication
+
+#define IS_LETTER(ch) ch >= 'A' && ch <= 'z' && !( ch > 'Z' && ch < 'a')
 
 // grabs characters to form next symbol (i.e. number or operator)
 static void next_part(void){
@@ -239,9 +338,43 @@ static void next_part(void){
 		tmp->super.type = S_NUM;
         tmp->super.ops = &number_v;
 		symbol = &(tmp->super);
-    // if letter (variable)
-	} else if (ch != -1 && ch >= 'A' && ch <= 'z' && !(ch > 'Z' && ch < 'a')) {
-        if(vars[ch] == NULL) {
+    // if letter (variable) or trig function
+	} else if(ch != -1 && IS_LETTER(ch)) {
+        if(peak_char() != -1 && IS_LETTER(peak_char())){
+            char letters[4];
+            letters[3] = '\0';
+            letters[0] = ch;
+            letters[1] = next_char();
+            if(peak_char() != -1 && IS_LETTER(peak_char())){
+                letters[2] = next_char();
+            } else{
+                longjmp(jb, E_RND_LETTERS);
+            }
+            if (!strcmp("sin", letters)) {
+                struct opr *tmp = calloc(sizeof *tmp, 1);
+                tmp->super.type = S_TRIG;
+                tmp->super.ops = &sine;
+                symbol = &(tmp->super);
+            } else if (!strcmp("cos", letters)) {
+                struct opr *tmp = calloc(sizeof *tmp, 1);
+                tmp->super.type = S_TRIG;
+                tmp->super.ops = &cosine;
+                symbol = &(tmp->super);
+            } else if (!strcmp("tan", letters)) {
+                struct opr *tmp = calloc(sizeof *tmp, 1);
+                tmp->super.type = S_TRIG;
+                tmp->super.ops = &tangent;
+                symbol = &(tmp->super);
+            } /* else if (strcmp("cot", letters)) {
+
+            } else if (strcmp("csc", letters)) {
+
+            } else if (strcmp("sec", letters)) {
+
+            }*/ else {
+                longjmp(jb, E_RND_LETTERS);
+            }
+        } else if(vars[ch] == NULL) {
             struct var *tmp = calloc(sizeof *tmp, 1);
             tmp->ch = ch;
             tmp->super.type = S_NUM;
@@ -285,14 +418,14 @@ static void next_part(void){
 
 static struct node *expression(void);
 
-// a factor is a number or an expression
+// a factor is a number, variable, expression, or a trig function
 static struct node *factor(void){
     struct node *temp;
     if(symbol->ops == &addition){
         next_part();
     }
 
-    if (symbol->type == S_NUM) {
+    if (symbol->type == S_NUM){
         temp = symbol;
         next_part();
         return temp;
@@ -309,8 +442,9 @@ static struct node *factor(void){
         neg->left_c = &neg_1->super;
         neg->right_c = factor();
         return &neg->super;
-    }else if (symbol->type == S_L_PAREN) {
+    }else if (symbol->type == S_L_PAREN){
         next_part();
+printf("test 3\n");
         temp = expression();
         if(symbol->type == S_R_PAREN){
             next_part();
@@ -318,6 +452,11 @@ static struct node *factor(void){
         } else{
             longjmp(jb, E_MISS_PAREN);
         }
+    }else if (symbol->type == S_TRIG){
+        temp = symbol;
+        next_part();
+        ((struct opr *)symbol)->left_c = factor();
+        return symbol;
     }
     longjmp(jb, E_NO_NUM);
 }
@@ -325,6 +464,7 @@ static struct node *factor(void){
 // a term can be any number of factors seperated by * or /
 // returns the head of the binary tree for the term
 static struct node *term(void){
+printf("test2\n");
     struct node *head = factor();
     while (symbol != NULL && (symbol->ops == &multiply || symbol->ops == &divide)){
         struct opr *temp = (struct opr *) symbol;
@@ -333,7 +473,7 @@ static struct node *term(void){
         next_part();
         temp->right_c = factor();
     }
-    if (symbol != NULL && (symbol->type == S_NUM || symbol->type == S_L_PAREN)) {      // checking for implicite multiplication
+    if (symbol != NULL && (symbol->type == S_NUM|| symbol->type == S_L_PAREN)) {      // checking for implicite multiplication
         longjmp(jb, E_IMPLI_MUL);
     }
     return head;
@@ -342,6 +482,7 @@ static struct node *term(void){
 // an expression can be any number of terms seperated by + or -
 // returns the head of the binary tree for an expression
 static struct node *expression(void){
+printf("test1\n");
     struct node *head = term();
     while (symbol != NULL && (symbol->ops == &addition || symbol->ops == &subtract)){
         struct opr *temp = (struct opr *) symbol;
@@ -360,6 +501,9 @@ static struct node *expression(void){
 static void print_tree(struct node *curr){
     if (curr->type == S_NUM){
         curr->ops->print(curr);
+    } if (curr->type == S_TRIG){
+        curr->ops->print(curr);
+        print_tree(((struct opr *)curr)->left_c);
     } else {
         print_tree(((struct opr *)curr)->left_c);
         curr->ops->print(curr);
@@ -373,6 +517,9 @@ static void print_tree1(struct node *curr, int level){
     if (curr->type == S_NUM){
         curr->ops->print(curr);
         printf("\n");
+    } if (curr->type == S_TRIG){
+        curr->ops->print(curr);
+        print_tree1(((struct opr *)curr)->left_c, level + 1);
     } else {
         curr->ops->print(curr);
         printf("\n");
@@ -538,8 +685,9 @@ int main(int argc, char *argv[]){
         switch(setjmp(jb)){
             case 0:
                 head = expression();
-                //int answer = head->ops->evaluate(head);
-                //printf("%d\n", answer);
+printf("test4\n");
+                int answer = head->ops->evaluate(head);
+                printf("%d\n", answer);
 
                 /*                
                 for(int i = 0; i <= 10; i++) {
@@ -568,12 +716,17 @@ int main(int argc, char *argv[]){
                 printf("no implicite multiplcation\n");
                 exit(1);
                 break;
+            case E_RND_LETTERS:
+                printf("multiple letters string together but not trig function, no implicite multiplication\n");
+                exit(1);
+                break;
             default:
                 printf("unknown error\n");
                 exit(1);
                 break;
         }
-	
+
+        /*	
         // initializing stuff
         if(SDL_Init(SDL_INIT_EVERYTHING)<0){
             printf("Failed SDL_Init %s\n", SDL_GetError());
@@ -594,6 +747,7 @@ int main(int argc, char *argv[]){
                 handle_event(&e);
             }
         }
+        */
     }
 }
 
