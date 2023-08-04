@@ -15,7 +15,7 @@ variable
 Uppercase or lowercase letter
 
 trig
-"sin" | "cos" | "tan" | "csc" | "sec" | "cot"
+"sin" | "cos" | "tan" | "csc" | "sec" | "cot" | "asin" | "acos" | "atan"
 */
 
 #include <string.h>
@@ -39,13 +39,16 @@ struct node_vtable{
 };
 
 /*
-Add parsing trig functions
+Add parsing trig functions, how should I do csc, cot, sec?
+
+add grid lines
 
 fix the wholes, maybe by leaving the NaN values in the linked list 
 instead of averaging between two xs, do it a little more randomly
 by float->unsigned long long -> float and adding randomly generated
 number between the difference of the two
 
+standardize formating
 
 */
 
@@ -125,6 +128,20 @@ static intfp eval_tan(struct node *curr){
     return tan(op->left_c->ops->evaluate(op->left_c));
 }
 
+static intfp eval_acos(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return acos(op->left_c->ops->evaluate(op->left_c));
+}
+
+static intfp eval_asin(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return asin(op->left_c->ops->evaluate(op->left_c));
+}
+
+static intfp eval_atan(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return atan(op->left_c->ops->evaluate(op->left_c));
+}
 /*
 static intfp eval_sec(struct node *curr){
     struct opr *op = (struct opr *)curr;
@@ -183,6 +200,21 @@ static void print_sin(struct node *curr){
 static void print_tan(struct node *curr){
     (void) curr;
     printf("tan");
+}
+
+static void print_acos(struct node *curr){
+    (void) curr;
+    printf("acos");
+}
+
+static void print_asin(struct node *curr){
+    (void) curr;
+    printf("asin");
+}
+
+static void print_atan(struct node *curr){
+    (void) curr;
+    printf("atan");
 }
 /*
 static void print_cos(struct node *curr){
@@ -244,6 +276,20 @@ static struct node_vtable tangent = {
     .evaluate = eval_tan,
 };
 
+static struct node_vtable acosine = {
+    .print = print_acos,
+    .evaluate = eval_acos,
+};
+
+static struct node_vtable asine = {
+    .print = print_asin,
+    .evaluate = eval_asin,
+};
+
+static struct node_vtable atangent = {
+    .print = print_atan,
+    .evaluate = eval_atan,
+};
 /*
 static struct node_vtable secant = {
     .print = print_sec,
@@ -289,12 +335,18 @@ static unsigned c_idx = 0;
 //static char equation[] = "a+b+2";
 //static char equation[] = "ab";                        // should throw exepction
 //static char equation[] = "?";                         // should throw exception  
-//static char equation[] = "(23)";                      // should be fine                      
+//static char equation[] = "(23)";                      // 23                      
 //static char equation[] = "sin(23)";
-static char equation[] = "sin(x)";
+// GRAPHS
+static char equation[] = "atan(x)";
+//static char equation[] = "sin(x)";
+//static char equation[] = "tan(x)";
+//static char equation[] = "cos(x)";
 //static char equation[] = "1/x";
 //static char equation[] = "x";
 //static char equation[] = "x*x/400";
+
+
 static struct node* symbol;
 
 // returns current char, increments curr char
@@ -318,6 +370,7 @@ static char peak_char(void){
 #define E_IMPLI_MUL 4           // implicite multiplication
 #define E_RND_LETTERS 5         // multiple letters string together but not trig function, no implicite multiplication
 
+// is letter in alphabet
 #define IS_LETTER(ch) ch >= 'A' && ch <= 'z' && !( ch > 'Z' && ch < 'a')
 
 // grabs characters to form next symbol (i.e. number or operator)
@@ -342,14 +395,12 @@ static void next_part(void){
     // if letter (variable) or trig function
 	} else if(ch != -1 && IS_LETTER(ch)) {
         if(peak_char() != -1 && IS_LETTER(peak_char())){
-            char letters[4];
-            letters[3] = '\0';
+            char *letters = calloc(5, sizeof (char));
             letters[0] = ch;
-            letters[1] = next_char();
-            if(peak_char() != -1 && IS_LETTER(peak_char())){
-                letters[2] = next_char();
-            } else{
-                longjmp(jb, E_RND_LETTERS);
+            int i = 1;
+            while (i < 4 && peak_char() != -1 && IS_LETTER(peak_char())){
+                letters[i] = next_char();
+                i++;
             }
             if (!strcmp("sin", letters)) {
                 struct opr *tmp = calloc(sizeof *tmp, 1);
@@ -372,7 +423,24 @@ static void next_part(void){
 
             } else if (strcmp("sec", letters)) {
 
-            }*/ else {
+            } */
+            
+            else if (!strcmp("asin", letters)) {
+                struct opr *tmp = calloc(sizeof *tmp, 1);
+                tmp->super.type = S_TRIG;
+                tmp->super.ops = &asine;
+                symbol = &(tmp->super);
+            } else if (!strcmp("acos", letters)) {
+                struct opr *tmp = calloc(sizeof *tmp, 1);
+                tmp->super.type = S_TRIG;
+                tmp->super.ops = &acosine;
+                symbol = &(tmp->super);
+            } else if (!strcmp("atan", letters)) {
+                struct opr *tmp = calloc(sizeof *tmp, 1);
+                tmp->super.type = S_TRIG;
+                tmp->super.ops = &atangent;
+                symbol = &(tmp->super);
+            } else {
                 longjmp(jb, E_RND_LETTERS);
             }
         } else if(vars[ch] == NULL) {
@@ -412,7 +480,9 @@ static void next_part(void){
             longjmp(jb, E_UNKNOWN_SYM);
         }
 		symbol = &tmp->super;
-	} else {
+	} else if (ch != -1){
+        longjmp(jb, E_UNKNOWN_SYM);
+    } else {
         symbol = NULL;
     }
 }
@@ -568,7 +638,9 @@ static void display_graph(struct node *head){
             pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0x000000; 
         }
         // sets value of variable representing x axis for calculations, "zooming" in
-        ((struct var *)x_var)->value = i*(1/ZOOM);
+        if (x_var){
+            ((struct var *)x_var)->value = i*(1/ZOOM);
+        }
         switch(sigsetjmp(slj, 1)){
             case 0:
                 intfp eval_ans = head->ops->evaluate(head);
@@ -599,7 +671,9 @@ static void display_graph(struct node *head){
         if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1)){    
             // new x value for new point
             double new_x = (first->x + second->x)/2;
-            ((struct var *)x_var)->value = new_x*(1/ZOOM);
+            if (x_var){
+                ((struct var *)x_var)->value = new_x*(1/ZOOM);
+            }
             intfp eval_ans = head->ops->evaluate(head);
             int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
 
@@ -677,6 +751,29 @@ static void handle_event(SDL_Event *event){
     }
 }
 
+static void graph_equation(struct node *head){
+    // initializing stuff
+    if(SDL_Init(SDL_INIT_EVERYTHING)<0){
+        printf("Failed SDL_Init %s\n", SDL_GetError());
+        exit(1);
+    }
+
+    // creating the graph
+    graph = SDL_CreateWindow("Graph", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, W_WIDTH, W_HEIGHT, 0);
+    rend = SDL_CreateRenderer(graph, -1, 0);
+    tex = SDL_CreateTexture(rend, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, W_WIDTH, W_HEIGHT);
+
+    display_graph(head);
+    // while graph has not been closed
+    while(!quitting) {
+        SDL_Event e;
+
+        while(!quitting && SDL_WaitEvent(&e)){
+            handle_event(&e);
+        }
+    }
+}
+
 int main(int argc, char *argv[]){
 	(void)argc;
 	(void)argv;
@@ -701,6 +798,7 @@ int main(int argc, char *argv[]){
                 print_tree(head);
                 printf("\n");
                 print_tree1(head, 0);
+                graph_equation(head);
                 break;
             case E_NO_NUM:
                 printf("number expected, no num before %c\n", peak_char());
@@ -728,28 +826,6 @@ int main(int argc, char *argv[]){
                 break;
         }
 
-        // NEED TO ADD ERROR THAT IT CAN ONLY GRAPH IS X VAR EXISTS
-        	
-        // initializing stuff
-        if(SDL_Init(SDL_INIT_EVERYTHING)<0){
-            printf("Failed SDL_Init %s\n", SDL_GetError());
-            return 1;
-        }
-
-        // creating the graph
-        graph = SDL_CreateWindow("Graph", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, W_WIDTH, W_HEIGHT, 0);
-        rend = SDL_CreateRenderer(graph, -1, 0);
-        tex = SDL_CreateTexture(rend, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, W_WIDTH, W_HEIGHT);
-
-        display_graph(head);
-        // while graph has not been closed
-        while(!quitting) {
-            SDL_Event e;
-
-            while(!quitting && SDL_WaitEvent(&e)){
-                handle_event(&e);
-            }
-        }
     }
 }
 
