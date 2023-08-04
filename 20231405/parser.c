@@ -290,7 +290,8 @@ static unsigned c_idx = 0;
 //static char equation[] = "ab";                        // should throw exepction
 //static char equation[] = "?";                         // should throw exception  
 //static char equation[] = "(23)";                      // should be fine                      
-static char equation[] = "sin(23)";
+//static char equation[] = "sin(23)";
+static char equation[] = "sin(x)";
 //static char equation[] = "1/x";
 //static char equation[] = "x";
 //static char equation[] = "x*x/400";
@@ -455,8 +456,8 @@ printf("test 3\n");
     }else if (symbol->type == S_TRIG){
         temp = symbol;
         next_part();
-        ((struct opr *)symbol)->left_c = factor();
-        return symbol;
+        ((struct opr *)temp)->left_c = factor();
+        return temp;
     }
     longjmp(jb, E_NO_NUM);
 }
@@ -473,7 +474,7 @@ printf("test2\n");
         next_part();
         temp->right_c = factor();
     }
-    if (symbol != NULL && (symbol->type == S_NUM|| symbol->type == S_L_PAREN)) {      // checking for implicite multiplication
+    if (symbol != NULL && (symbol->type == S_NUM || symbol->type == S_L_PAREN)) {      // checking for implicite multiplication
         longjmp(jb, E_IMPLI_MUL);
     }
     return head;
@@ -499,9 +500,10 @@ printf("test1\n");
 
 // prints tree inorder, effectively printing original input
 static void print_tree(struct node *curr){
+//printf("printing\n");
     if (curr->type == S_NUM){
         curr->ops->print(curr);
-    } if (curr->type == S_TRIG){
+    } else if (curr->type == S_TRIG){
         curr->ops->print(curr);
         print_tree(((struct opr *)curr)->left_c);
     } else {
@@ -517,7 +519,7 @@ static void print_tree1(struct node *curr, int level){
     if (curr->type == S_NUM){
         curr->ops->print(curr);
         printf("\n");
-    } if (curr->type == S_TRIG){
+    } else if (curr->type == S_TRIG){
         curr->ops->print(curr);
         print_tree1(((struct opr *)curr)->left_c, level + 1);
     } else {
@@ -685,9 +687,9 @@ int main(int argc, char *argv[]){
         switch(setjmp(jb)){
             case 0:
                 head = expression();
-printf("test4\n");
-                int answer = head->ops->evaluate(head);
-                printf("%d\n", answer);
+//printf("%f\n", sin(23.0));
+                intfp answer = head->ops->evaluate(head);
+                printf("%f\n", answer);
 
                 /*                
                 for(int i = 0; i <= 10; i++) {
@@ -726,7 +728,8 @@ printf("test4\n");
                 break;
         }
 
-        /*	
+        // NEED TO ADD ERROR THAT IT CAN ONLY GRAPH IS X VAR EXISTS
+        	
         // initializing stuff
         if(SDL_Init(SDL_INIT_EVERYTHING)<0){
             printf("Failed SDL_Init %s\n", SDL_GetError());
@@ -747,7 +750,6 @@ printf("test4\n");
                 handle_event(&e);
             }
         }
-        */
     }
 }
 
