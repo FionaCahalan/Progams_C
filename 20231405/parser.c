@@ -39,11 +39,10 @@ struct node_vtable{
 };
 
 /*
-Add parsing trig functions, how should I do csc, cot, sec?
 
 add grid lines
 
-fix the wholes, maybe by leaving the NaN values in the linked list 
+fix the holes, maybe by leaving the NaN values in the linked list 
 instead of averaging between two xs, do it a little more randomly
 by float->unsigned long long -> float and adding randomly generated
 number between the difference of the two
@@ -128,6 +127,21 @@ static intfp eval_tan(struct node *curr){
     return tan(op->left_c->ops->evaluate(op->left_c));
 }
 
+static intfp eval_sec(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return 1/cos(op->left_c->ops->evaluate(op->left_c));
+}
+
+static intfp eval_csc(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return 1/sin(op->left_c->ops->evaluate(op->left_c));
+}
+
+static intfp eval_cot(struct node *curr){
+    struct opr *op = (struct opr *)curr;
+    return 1/tan(op->left_c->ops->evaluate(op->left_c));
+}
+
 static intfp eval_acos(struct node *curr){
     struct opr *op = (struct opr *)curr;
     return acos(op->left_c->ops->evaluate(op->left_c));
@@ -142,21 +156,6 @@ static intfp eval_atan(struct node *curr){
     struct opr *op = (struct opr *)curr;
     return atan(op->left_c->ops->evaluate(op->left_c));
 }
-/*
-static intfp eval_sec(struct node *curr){
-    struct opr *op = (struct opr *)curr;
-    return sec(op->left_c->ops->evaluate(op->left_c));
-}
-
-static intfp eval_csc(struct node *curr){
-    struct opr *op = (struct opr *)curr;
-    return csc(op->left_c->ops->evaluate(op->left_c));
-}
-
-static intfp eval_cot(struct node *curr){
-    struct opr *op = (struct opr *)curr;
-    return cot(op->left_c->ops->evaluate(op->left_c));
-} */
 
 static intfp eval_num(struct node *curr){
     return ((struct num*)curr)->number;
@@ -216,21 +215,21 @@ static void print_atan(struct node *curr){
     (void) curr;
     printf("atan");
 }
-/*
-static void print_cos(struct node *curr){
+
+static void print_sec(struct node *curr){
     (void) curr;
     printf("sec");
 }
 
-static void print_cos(struct node *curr){
+static void print_csc(struct node *curr){
     (void) curr;
     printf("csc");
 }
 
-static void print_cos(struct node *curr){
+static void print_cot(struct node *curr){
     (void) curr;
     printf("cot");
-} */
+}
 
 static void print_num(struct node *curr){
     printf("%f", curr->ops->evaluate(curr));
@@ -290,20 +289,21 @@ static struct node_vtable atangent = {
     .print = print_atan,
     .evaluate = eval_atan,
 };
-/*
+
 static struct node_vtable secant = {
     .print = print_sec,
-    .evaluate = eval_sec;
+    .evaluate = eval_sec,
 };
 
 static struct node_vtable cosecant = {
     .print = print_csc,
-    .evaluate = eval_csc;
+    .evaluate = eval_csc,
 };
+
 static struct node_vtable cotangent = {
     .print = print_cot,
-    .evaluate = eval_cot;
-};*/
+    .evaluate = eval_cot,
+};
 
 static struct node_vtable number_v = {
     .print = print_num,
@@ -334,14 +334,15 @@ static unsigned c_idx = 0;
 //static char equation[] = "3*4+6*a";                   // x = 0, x = 12
 //static char equation[] = "a+b+2";
 //static char equation[] = "ab";                        // should throw exepction
-//static char equation[] = "?";                         // should throw exception  
+//static char equation[] = "?";                         // should throw exception  NEED HELP FROM DAD TO DEBUG
 //static char equation[] = "(23)";                      // 23                      
 //static char equation[] = "sin(23)";
 // GRAPHS
-static char equation[] = "atan(x)";
+//static char equation[] = "atan(x)";
 //static char equation[] = "sin(x)";
 //static char equation[] = "tan(x)";
 //static char equation[] = "cos(x)";
+static char equation[] = "csc(x)";
 //static char equation[] = "1/x";
 //static char equation[] = "x";
 //static char equation[] = "x*x/400";
@@ -417,15 +418,22 @@ static void next_part(void){
                 tmp->super.type = S_TRIG;
                 tmp->super.ops = &tangent;
                 symbol = &(tmp->super);
-            } /* else if (strcmp("cot", letters)) {
-
-            } else if (strcmp("csc", letters)) {
-
-            } else if (strcmp("sec", letters)) {
-
-            } */
-            
-            else if (!strcmp("asin", letters)) {
+            } else if (!strcmp("csc", letters)) {
+                struct opr *tmp = calloc(sizeof *tmp, 1);
+                tmp->super.type = S_TRIG;
+                tmp->super.ops = &cosecant;
+                symbol = &(tmp->super);
+            } else if (!strcmp("sec", letters)) {
+                struct opr *tmp = calloc(sizeof *tmp, 1);
+                tmp->super.type = S_TRIG;
+                tmp->super.ops = &secant;
+                symbol = &(tmp->super);
+            } else if (!strcmp("cot", letters)) {
+                struct opr *tmp = calloc(sizeof *tmp, 1);
+                tmp->super.type = S_TRIG;
+                tmp->super.ops = &cotangent;
+                symbol = &(tmp->super);
+            } else if (!strcmp("asin", letters)) {
                 struct opr *tmp = calloc(sizeof *tmp, 1);
                 tmp->super.type = S_TRIG;
                 tmp->super.ops = &asine;
