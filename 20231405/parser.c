@@ -631,30 +631,14 @@ struct list_item{
     int y;
 };
 
-static intfp generate_x_values(intfp *values, intfp x1, intfp x2){
-    intfp diff_i = x2 - x2;  // use intfp/double instead?
-    unsigned long long diff;
-    memcpy(&diff, &diff_i, sizeof diff_i);
-    unsigned long long min;
-    memcpy(&min, &x1, sizeof x1);
-    intfp new_xs[50];
-    int counter = 0;
-    for (int i = 0; i < sizeof new_xs; i++){
-        // unsigned long long temp = min + rand() % diff;
-        unsigned long long temp = min + rand() % diff;
-        memcpy(&new_xs[i], &temp, sizeof temp);
-        /*
-        if(new_xs[i] > x1 && new_xs[i] < x2)
-            counter++;
-        else
-            i--;*/
-        counter++;
-        //new_xs[i] = rand() % diff;
-    }
-    values = new_xs;
-    // I DON'T THINK I GOT THE POINTERS WITH VALUES AND NEW_XS RIGHT
-printf("counter: %d\n", counter);
-    return counter;
+static intfp generate_x_value(unsigned long long x1, unsigned long long diff){
+    intfp result;
+    unsigned long long random = rand();
+    random = random << 32;
+    random = random + rand();
+    unsigned long long temp = x1 + random % diff;
+    memcpy(&result, &temp, sizeof temp);
+    return result;
 }
 
 static void display_graph(struct node *head){
@@ -692,7 +676,8 @@ static void display_graph(struct node *head){
                     list_add((&ans_head->super)->prev, &ans_new->super);
                 }
                 break;
-            default:    // if floatHow do you view the role and parameters of both o_handler);
+            default:    // if floating point exception (i.e dividing by 0), don't plot that point
+                signal(SIGFPE, fpe_handler);
                 break;
         }
     }
@@ -707,48 +692,49 @@ static void display_graph(struct node *head){
         if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1)){    
             switch(sigsetjmp(slj, 1)){
                 case 0:
-                    intfp *values;
-                    int num_made = generate_x_values(values, first->x, second->x);
-                    for(int i = 0; i < num_made; i++) {
+                    unsigned long long x2;
+                    memcpy(&x2, &second->x, sizeof second->x);
+                    unsigned long long x1;
+                    memcpy(&x1, &first->x, sizeof first->x);
+                    for(int i = 0; i < 10; i++) {
                         //new x value for new point
-                        //double new_x = (first->x + second->x)/2;
-                        double new_x = *(values + i);
-                        if (x_var){
-                            ((struct var *)x_var)->value = new_x*(1/ZOOM);
-                        }
-                        intfp eval_ans = head->ops->evaluate(head);
-                        int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
+                        intfp new_x = generate_x_value(x1, x1-x2);
+                        if (new_x < second->x && new_x > first->x){
+                            if (x_var){
+                                ((struct var *)x_var)->value = new_x*(1/ZOOM);
+                            }
+                            intfp eval_ans = head->ops->evaluate(head);
+                            int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
 
-                        // place white (RED) point if in range
-                        if (ans < W_HEIGHT && ans >= 0) {
-                            int x_val = nearbyint(second->x);
-                            pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + x_val + W_WIDTH/2] = 0xff0000;
-                            struct list_item *ans_new = calloc(sizeof *ans_new, 1);
-                            ans_new->x = new_x;
-                            ans_new->y = ans;
-                            // add point to linked list
-                            list_add(pos, &ans_new->super);
-            //printf("Added new point between %f %f y values: %d %d %d count: %d\n", first->x, second->x, first->y, second->y, ans_new->y, list_count(&ans_head->super));
-                            // if point is equal to the first or second point, move on
-                            if (ans_new->y == first->y){
-                                pos = pos->next;
-                            } else if (ans_new->y == second->y){
-                                pos = pos->next->next;
-                            } 
-                        } /*else { // point out of range, move on
-                            pos = pos->next;
-                        }*/
+                            // place white (RED) point if in range
+                            if (ans < W_HEIGHT && ans >= 0) {
+                                int x_val = nearbyint(second->x);
+                                pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + x_val + W_WIDTH/2] = 0xff0000;
+                                struct list_item *ans_new = calloc(sizeof *ans_new, 1);
+                                ans_new->x = new_x;
+                                ans_new->y = ans;
+                                // add point to linked list
+                                list_add(pos, &ans_new->super);
+                //printf("Added new point between %f %f y values: %d %d %d count: %d\n", first->x, second->x, first->y, second->y, ans_new->y, list_count(&ans_head->super));
+                                /*
+                                // if point is equal to the first or second point, move on
+                                if (ans_new->y == first->y){
+                                    pos = pos->next;
+                                } else if (ans_new->y == second->y){
+                                    pos = pos->next->next;
+                                } */
+                            }
+                        }
                     }
                     break;
                 default:        // if floating point exception (i.e dividing by 0), don't plot that point
                     signal(SIGFPE, fpe_handler);
                     break;
             }
-            pos = pos->next;
+            // pos = pos->next;
         } else {
             pos = pos->next;
         }
-        // ADD ERROR CHECKING!
     }
     void *pixels;
     int pitch;
@@ -764,6 +750,7 @@ static void display_graph(struct node *head){
 	SDL_Rect recent_dstrect = (SDL_Rect){.x = 0, .y = 0, .w = W_HEIGHT, .h = W_HEIGHT};
 	SDL_RenderCopy(rend, tex, &recent_srcrect, &recent_dstrect);
     */
+
     // paste all of the texture onto all of the renderer
     SDL_RenderCopy(rend, tex, NULL, NULL);
 
@@ -832,7 +819,6 @@ int main(int argc, char *argv[]){
                 struct node *head;
                 next_part();
                 head = expression();
-//printf("%f\n", sin(23.0));
                 intfp answer = head->ops->evaluate(head);
                 printf("%f\n", answer);
 
@@ -876,5 +862,3 @@ int main(int argc, char *argv[]){
 
     }
 }
-
-
