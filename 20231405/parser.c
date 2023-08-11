@@ -17,7 +17,7 @@ Uppercase or lowercase letter
 trig
 "sin" | "cos" | "tan" | "csc" | "sec" | "cot" | "asin" | "acos" | "atan"
 */
-
+#define _GNU_SOURCE
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,6 +26,7 @@ trig
 #include <SDL.h>
 #include <signal.h>
 #include "linked_list.h"
+#include <fenv.h>
 typedef double intfp;
 
 static jmp_buf jb;                  //errors handling
@@ -345,7 +346,8 @@ static unsigned c_idx = 0;
 //static char equation[] = "cos(x)";
 //static char equation[] = "csc(x)";                      //NOT PRINTING
 //static char equation[] = "1/x";
-static char equation[] = "sin(1/x)";
+//static char equation[] = "sin(1/x)";
+static char equation[] = "sin(tan(x))";
 //static char equation[] = "x";
 //static char equation[] = "x*x/400";
 
@@ -526,7 +528,6 @@ static struct node *factor(void){
         return &neg->super;
     }else if (symbol->type == S_L_PAREN){
         next_part();
-printf("test 3\n");
         temp = expression();
         if(symbol->type == S_R_PAREN){
             next_part();
@@ -546,7 +547,6 @@ printf("test 3\n");
 // a term can be any number of factors seperated by * or /
 // returns the head of the binary tree for the term
 static struct node *term(void){
-printf("test2\n");
     struct node *head = factor();
     while (symbol != NULL && (symbol->ops == &multiply || symbol->ops == &divide)){
         struct opr *temp = (struct opr *) symbol;
@@ -564,7 +564,6 @@ printf("test2\n");
 // an expression can be any number of terms seperated by + or -
 // returns the head of the binary tree for an expression
 static struct node *expression(void){
-printf("test1\n");
     struct node *head = term();
     while (symbol != NULL && (symbol->ops == &addition || symbol->ops == &subtract)){
         struct opr *temp = (struct opr *) symbol;
@@ -581,7 +580,6 @@ printf("test1\n");
 
 // prints tree inorder, effectively printing original input
 static void print_tree(struct node *curr){
-//printf("printing\n");
     if (curr->type == S_NUM){
         curr->ops->print(curr);
     } else if (curr->type == S_TRIG){
@@ -614,7 +612,7 @@ static void print_tree1(struct node *curr, int level){
 
 #define W_HEIGHT 500
 #define W_WIDTH 500
-#define ZOOM 200.0
+#define ZOOM 20.0
 static int quitting;
 static SDL_Window *graph;
 static SDL_Renderer *rend;
@@ -623,13 +621,14 @@ static sigjmp_buf slj;
 
 // handles floating point exception
 static void fpe_handler(int sig){
+    signal(SIGFPE, fpe_handler);
     siglongjmp(slj, sig);
 }
 
 struct list_item{
     struct list_node super;
     intfp x;
-    int y;
+    intfp y;
 };
 
 static intfp generate_x_value(intfp x1_f, intfp x2_f){
@@ -655,7 +654,7 @@ static intfp generate_x_value(intfp x1_f, intfp x2_f){
     r = r << 32;
     r = r + rand();
     if(diff < 2){
-        fprintf(stderr, "difference less than 2\n");
+        //fprintf(stderr, "difference less than 2\n");
         return NAN;
     }
     unsigned long long x3 = x1 + r % (diff - 1) + 1; 
@@ -685,80 +684,75 @@ static void display_graph(struct node *head){
         if (x_var){
             ((struct var *)x_var)->value = i*(1/ZOOM);
         }
+        struct list_item *ans_new = calloc(sizeof *ans_new, 1);
         switch(sigsetjmp(slj, 1)){
             case 0:
-                intfp eval_ans = head->ops->evaluate(head);
+                intfp eval_ans = head->ops->evaluate(head)*ZOOM;
 
-                int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
+                int ans = nearbyint(eval_ans) + W_HEIGHT/2;
 
                 // place white point if in range
                 if (ans < W_HEIGHT && ans >= 0) {
                     pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + i + W_WIDTH/2] = 0xffffff;
-                    struct list_item *ans_new = calloc(sizeof *ans_new, 1);
-                    ans_new->x =  i;
-                    ans_new->y = ans;
-                    list_add((&ans_head->super)->prev, &ans_new->super);
                 }
+                ans_new->x =  i;
+                ans_new->y = eval_ans;
+                list_add((&ans_head->super)->prev, &ans_new->super);
                 break;
             default:    // if floating point exception (i.e dividing by 0), don't plot that point
+                // add NaN to list of points
                 signal(SIGFPE, fpe_handler);
+                ans_new->x = i;
+                ans_new->y = NAN;
+                // add point to linked list
+                list_add((&ans_head->super)->prev, &ans_new->super);
                 break;
         }
     }
 
     // Fill in holes in graph
     volatile struct list_node *pos = (&(ans_head->super))->next;
-
     while(pos != &ans_head->super){
         struct list_item *first = (struct list_item *) pos;
         struct list_item *second = (struct list_item *) pos->next;
         // if too far apart
-        if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1)){    
+// if statement could be improved
+        if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1 || isnan(first->y) || isnan(second->y))
+                && !(second->x - first->x < 0.0000001)){    
+            struct list_item *ans_new = calloc(sizeof *ans_new, 1);
             switch(sigsetjmp(slj, 1)){
                 case 0:
-                    // for(int i = 0; i < 1000; i++) {
-                    int counter = 0;
-                    int tester = 0;
-                    //while(counter < 20){
-                        //new x value for new point
-                        intfp new_x = generate_x_value(first->x, second->x);
-                        if(!isnan(new_x)){
-                            if (new_x < second->x && new_x > first->x){
-                            //if(new_x > -1*W_WIDTH/2 && new_x < W_WIDTH/2){
-                            //printf("I MADE IT HERE\n");
-                                counter++;
-                                if (x_var){
-                                    ((struct var *)x_var)->value = new_x*(1/ZOOM);
-                                }
-                                intfp eval_ans = head->ops->evaluate(head);
-                                int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
-
-                                // place white (RED) point if in range
-                                if (ans < W_HEIGHT && ans >= 0) {
-                                    int x_val = nearbyint(second->x);
-                                    pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + x_val + W_WIDTH/2] = 0xff0000;
-                                    struct list_item *ans_new = calloc(sizeof *ans_new, 1);
-                                    ans_new->x = new_x;
-                                    ans_new->y = ans;
-                                    // add point to linked list
-                                    list_add(pos, &ans_new->super);
-                    //printf("Added new point between %f %f y values: %d %d %d count: %d\n", first->x, second->x, first->y, second->y, ans_new->y, list_count(&ans_head->super));
-                                }
-                            } else if (new_x > second->x){
-                                tester++;
+                    //new x value for new point
+                    intfp new_x = generate_x_value(first->x, second->x);
+                    if(!isnan(new_x) && new_x < second->x && new_x > first->x){
+                            if (x_var){
+                                ((struct var *)x_var)->value = new_x*(1/ZOOM);
                             }
-                        } else {
-                            pos = pos->next;
-                        }
-                        counter++;
-                    //}
+                            intfp eval_ans = head->ops->evaluate(head)*ZOOM;
+                            int ans = nearbyint(eval_ans) + W_HEIGHT/2;
+
+                            // place white (RED) point if in range
+                            if (ans < W_HEIGHT && ans >= 0) {
+                                int x_val = nearbyint(new_x);
+                                pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + x_val + W_WIDTH/2] = 0xff0000;
+                            }
+                            ans_new->x = new_x;
+                            ans_new->y = eval_ans;
+                            // add point to linked list
+                            list_add(pos, &ans_new->super);
+                    } else {
+                        pos = pos->next;
+                    }
                     break;
-                default:        // if floating point exception (i.e dividing by 0), don't plot that point
+                default:    // if floating point exception (i.e dividing by 0), don't plot that point
                     signal(SIGFPE, fpe_handler);
+                    ans_new->x = new_x;
+                    ans_new->y = NAN;
+                    // add point to linked list
+                    list_add(pos, &ans_new->super);
+                    //pos = pos->next;
                     break;
             }
-            // DELETE THIS LINE LATER PLEASE
-            pos = pos->next;
         } else {
             pos = pos->next;
         }
@@ -839,15 +833,16 @@ static void graph_equation(struct node *head){
 int main(int argc, char *argv[]){
 	(void)argc;
 	(void)argv;
-	if(peak_char() != -1){ 
+	feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
+    if(peak_char() != -1){ 
         // error handling
         switch(setjmp(jb)){
             case 0:
                 struct node *head;
                 next_part();
                 head = expression();
-                intfp answer = head->ops->evaluate(head);
-                printf("%f\n", answer);
+                // intfp answer = head->ops->evaluate(head);
+                // printf("%f\n", answer);
 
                 /*                
                 for(int i = 0; i <= 10; i++) {
