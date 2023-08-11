@@ -741,8 +741,26 @@ static void display_graph(struct node *head){
         }
     }
     */
-
+    volatile struct list_node *pos = (&(ans_head->super))->next;
+    while(pos != &ans_head->super){
+        struct list_item *first = (struct list_item *) pos;
+        struct list_item *second = (struct list_item *) pos->next;
+        // if too far apart
+        if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1 || isnan(first->y) || isnan(second->y))
+                && !(second->x - first->x < 0.0000001)){    
+            struct list_item *ans_new = calloc(sizeof *ans_new, 1);
+            intfp new_x = generate_x_value(first->x, second->x);
+            if(!isnan(new_x) && new_x < second->x && new_x > first->x){
+                add_point(new_x, pos, pixels_for_window, head);
+            } else {
+                pos = pos->next;
+            }
+        } else {
+            pos = pos->next;
+        }
+    }
     // Fill in holes in graph
+    /*
     volatile struct list_node *pos = (&(ans_head->super))->next;
     while(pos != &ans_head->super){
         struct list_item *first = (struct list_item *) pos;
@@ -787,6 +805,7 @@ static void display_graph(struct node *head){
             pos = pos->next;
         }
     }
+    */
     void *pixels;
     int pitch;
 
