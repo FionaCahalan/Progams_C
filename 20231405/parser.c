@@ -39,21 +39,6 @@ struct node_vtable{
     intfp (*evaluate)(struct node *curr);
 };
 
-/*
-
-add grid lines
-
-fix the holes, maybe by leaving the NaN values in the linked list 
-instead of averaging between two xs, do it a little more randomly
-by float->unsigned long long -> float and adding randomly generated
-numbers between the difference of the two
-
-standardize formating
-
-*/
-
-
-
 // types of symbols/parts
 #define S_NUM 0             // number or variable
 #define S_OPER 1            // operator such as * / - +
@@ -346,12 +331,12 @@ static unsigned c_idx = 0;
 //static char equation[] = "cos(x)";
 //static char equation[] = "csc(x)";                      //NOT PRINTING
 //static char equation[] = "1/x";
-//static char equation[] = "sin(1/x)";
+//static char equation[] = "sin(1/x)";                    // Change ZOOM to 200
 static char equation[] = "sin(tan(x))";
 //static char equation[] = "x";
 //static char equation[] = "x*x/400";
 
-
+// stores latest part processes (parenthesis, number, variable, trig function)
 static struct node* symbol;
 
 // returns current char, increments curr char
@@ -399,6 +384,7 @@ static void next_part(void){
 		symbol = &(tmp->super);
     // if letter (variable) or trig function
 	} else if(ch != -1 && IS_LETTER(ch)) {
+        // if multiple letters, not variable and must be trig function
         if(peak_char() != -1 && IS_LETTER(peak_char())){
             char *letters = calloc(5, sizeof (char));
             letters[0] = ch;
@@ -455,7 +441,7 @@ static void next_part(void){
             } else {
                 longjmp(jb, E_RND_LETTERS);
             }
-        } else if(vars[ch] == NULL) {
+        } else if(vars[ch] == NULL) {   // variable
             struct var *tmp = calloc(sizeof *tmp, 1);
             tmp->ch = ch;
             tmp->super.type = S_NUM;
@@ -493,9 +479,9 @@ static void next_part(void){
             longjmp(jb, E_UNKNOWN_SYM);
         }
 		symbol = &tmp->super;
-	} else if (ch != -1){
+	} else if (ch != -1){       // characters remain but it is unknown character
         longjmp(jb, E_UNKNOWN_SYM);
-    } else {
+    } else {            // no more characters remain
         symbol = NULL;
     }
 }
@@ -625,12 +611,14 @@ static void fpe_handler(int sig){
     siglongjmp(slj, sig);
 }
 
+// used to store points in graph
 struct list_item{
     struct list_node super;
     intfp x;
     intfp y;
 };
 
+// generates random value between to values
 static intfp generate_x_value(intfp x1_f, intfp x2_f){
     unsigned long long x1;
     memcpy(&x1, &x1_f, sizeof x1_f);
@@ -653,6 +641,7 @@ static intfp generate_x_value(intfp x1_f, intfp x2_f){
     unsigned long long r = rand();
     r = r << 32;
     r = r + rand();
+    // bits aren't far enough apart to add another number between
     if(diff < 2){
         //fprintf(stderr, "difference less than 2\n");
         return NAN;
@@ -662,6 +651,37 @@ static intfp generate_x_value(intfp x1_f, intfp x2_f){
     intfp result;
     memcpy(&result, &x3, sizeof x3);
     return result;
+}
+
+static void add_point(intfp new_x, struct list_node *pos, unsigned *pixels_for_window, struct node *head){
+    struct list_item *ans_new = calloc(sizeof *ans_new, 1);
+    switch(sigsetjmp(slj, 1)){
+        case 0:
+            // calculate y value from new_x
+            if (x_var){
+                ((struct var *)x_var)->value = new_x*(1/ZOOM);
+            }
+            intfp eval_ans = head->ops->evaluate(head)*ZOOM;
+            int ans = nearbyint(eval_ans) + W_HEIGHT/2;
+
+            // place white point if in range
+            if (ans < W_HEIGHT && ans >= 0) {
+                int x_val = nearbyint(new_x);
+                pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + x_val + W_WIDTH/2] = 0xffffff;
+            }
+            ans_new->x = new_x;
+            ans_new->y = eval_ans;
+            // add point to linked list
+            list_add(pos, &ans_new->super);
+            break;
+        default:    // if floating point exception (i.e dividing by 0), don't plot that point
+            signal(SIGFPE, fpe_handler);
+            ans_new->x = new_x;
+            ans_new->y = NAN;
+            // add point to linked list
+            list_add(pos, &ans_new->super);
+            break;
+    }
 }
 
 static void display_graph(struct node *head){
@@ -675,6 +695,17 @@ static void display_graph(struct node *head){
     struct list_item *ans_head = calloc(sizeof *ans_head, 1);
     list_init_head(&ans_head->super);
 
+    // colors screen black
+    for (int i = -W_WIDTH/2; i < W_WIDTH/2; i++){
+        for (int j = 0; j < W_HEIGHT; j++){
+            pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0xffffff;
+        }
+    }
+    
+    add_point(-W_WIDTH/2, &ans_head->super, pixels_for_window, head);
+    add_point(W_WIDTH/2, (&ans_head->super)->next, pixels_for_window, head);
+
+    /*
     for (volatile int i = -W_WIDTH/2; i < W_WIDTH/2; i++){
         // effectively colors window black
         for (int j = 0; j < W_HEIGHT; j++){
@@ -709,6 +740,7 @@ static void display_graph(struct node *head){
                 break;
         }
     }
+    */
 
     // Fill in holes in graph
     volatile struct list_node *pos = (&(ans_head->super))->next;
@@ -716,7 +748,6 @@ static void display_graph(struct node *head){
         struct list_item *first = (struct list_item *) pos;
         struct list_item *second = (struct list_item *) pos->next;
         // if too far apart
-// if statement could be improved
         if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1 || isnan(first->y) || isnan(second->y))
                 && !(second->x - first->x < 0.0000001)){    
             struct list_item *ans_new = calloc(sizeof *ans_new, 1);
@@ -750,7 +781,6 @@ static void display_graph(struct node *head){
                     ans_new->y = NAN;
                     // add point to linked list
                     list_add(pos, &ans_new->super);
-                    //pos = pos->next;
                     break;
             }
         } else {
@@ -841,6 +871,8 @@ int main(int argc, char *argv[]){
                 struct node *head;
                 next_part();
                 head = expression();
+                
+                // for use for equations, not functions
                 // intfp answer = head->ops->evaluate(head);
                 // printf("%f\n", answer);
 
