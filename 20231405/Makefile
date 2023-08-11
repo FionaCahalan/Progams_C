@@ -16,6 +16,9 @@ tester: tester.c Makefile linked_list.h
 clean:
 	rm -f parser tester *~
 
+unop_$(NAME): Makefile parser.c
+	gcc -g3 -W -Wall -Wshadow -Wstrict-prototypes -Wmissing-prototypes -fno-common $(SDL2_CFLAGS) -o $@ parser.c $(SDL2_LIBS) -lm
+
 mem_$(NAME): Makefile parser.c
 	gcc $(CFLAGS) $(SDL2_CFLAGS) -fsanitize=address -fsanitize=pointer-compare -fsanitize=pointer-subtract -o $@ parser.c -lm $(SDL2_LIBS)
 

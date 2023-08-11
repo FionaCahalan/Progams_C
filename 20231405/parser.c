@@ -341,10 +341,11 @@ static unsigned c_idx = 0;
 //static char equation[] = "sco(x)";                   // throws multiple letters exception
 //static char equation[] = "atan(x)";
 //static char equation[] = "sin(x)";
-static char equation[] = "tan(x)";
+//static char equation[] = "tan(x)";                      //NOR PRINTING
 //static char equation[] = "cos(x)";
-//static char equation[] = "csc(x)";
+//static char equation[] = "csc(x)";                      //NOT PRINTING
 //static char equation[] = "1/x";
+static char equation[] = "sin(1/x)";
 //static char equation[] = "x";
 //static char equation[] = "x*x/400";
 
@@ -613,7 +614,7 @@ static void print_tree1(struct node *curr, int level){
 
 #define W_HEIGHT 500
 #define W_WIDTH 500
-#define ZOOM 20.0
+#define ZOOM 200.0
 static int quitting;
 static SDL_Window *graph;
 static SDL_Renderer *rend;
@@ -631,13 +632,36 @@ struct list_item{
     int y;
 };
 
-static intfp generate_x_value(unsigned long long x1, unsigned long long diff){
+static intfp generate_x_value(intfp x1_f, intfp x2_f){
+    unsigned long long x1;
+    memcpy(&x1, &x1_f, sizeof x1_f);
+    unsigned long long x2;
+    memcpy(&x2, &x2_f, sizeof x2_f);
+    if((x1 ^ x2) >> 63)
+        return 0.0;
+    // storing sign bit
+    unsigned long long sign_bit = x1 & (0x1ull << 63);
+    // masking off sign bit
+    x1 &= ~(0x1ull << 63);
+    x2 &= ~(0x1ull << 63);
+    // ensure x2 is bigger by magnitude
+    if(sign_bit){
+        unsigned long long tmp = x1;
+        x1 = x2;
+        x2 = tmp;    
+    }
+    unsigned long long diff = x2 - x1;
+    unsigned long long r = rand();
+    r = r << 32;
+    r = r + rand();
+    if(diff < 2){
+        fprintf(stderr, "difference less than 2\n");
+        return NAN;
+    }
+    unsigned long long x3 = x1 + r % (diff - 1) + 1; 
+    x3 |= sign_bit;
     intfp result;
-    unsigned long long random = rand();
-    random = random << 32;
-    random = random + rand();
-    unsigned long long temp = x1 + random % diff;
-    memcpy(&result, &temp, sizeof temp);
+    memcpy(&result, &x3, sizeof x3);
     return result;
 }
 
@@ -683,7 +707,7 @@ static void display_graph(struct node *head){
     }
 
     // Fill in holes in graph
-    struct list_node *pos = (&(ans_head->super))->next;
+    volatile struct list_node *pos = (&(ans_head->super))->next;
 
     while(pos != &ans_head->super){
         struct list_item *first = (struct list_item *) pos;
@@ -692,46 +716,49 @@ static void display_graph(struct node *head){
         if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1)){    
             switch(sigsetjmp(slj, 1)){
                 case 0:
-                    unsigned long long x2;
-                    memcpy(&x2, &second->x, sizeof second->x);
-                    unsigned long long x1;
-                    memcpy(&x1, &first->x, sizeof first->x);
-                    for(int i = 0; i < 10; i++) {
+                    // for(int i = 0; i < 1000; i++) {
+                    int counter = 0;
+                    int tester = 0;
+                    //while(counter < 20){
                         //new x value for new point
-                        intfp new_x = generate_x_value(x1, x1-x2);
-                        if (new_x < second->x && new_x > first->x){
-                            if (x_var){
-                                ((struct var *)x_var)->value = new_x*(1/ZOOM);
-                            }
-                            intfp eval_ans = head->ops->evaluate(head);
-                            int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
+                        intfp new_x = generate_x_value(first->x, second->x);
+                        if(!isnan(new_x)){
+                            if (new_x < second->x && new_x > first->x){
+                            //if(new_x > -1*W_WIDTH/2 && new_x < W_WIDTH/2){
+                            //printf("I MADE IT HERE\n");
+                                counter++;
+                                if (x_var){
+                                    ((struct var *)x_var)->value = new_x*(1/ZOOM);
+                                }
+                                intfp eval_ans = head->ops->evaluate(head);
+                                int ans = nearbyint(eval_ans*(ZOOM)) + W_HEIGHT/2;
 
-                            // place white (RED) point if in range
-                            if (ans < W_HEIGHT && ans >= 0) {
-                                int x_val = nearbyint(second->x);
-                                pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + x_val + W_WIDTH/2] = 0xff0000;
-                                struct list_item *ans_new = calloc(sizeof *ans_new, 1);
-                                ans_new->x = new_x;
-                                ans_new->y = ans;
-                                // add point to linked list
-                                list_add(pos, &ans_new->super);
-                //printf("Added new point between %f %f y values: %d %d %d count: %d\n", first->x, second->x, first->y, second->y, ans_new->y, list_count(&ans_head->super));
-                                /*
-                                // if point is equal to the first or second point, move on
-                                if (ans_new->y == first->y){
-                                    pos = pos->next;
-                                } else if (ans_new->y == second->y){
-                                    pos = pos->next->next;
-                                } */
+                                // place white (RED) point if in range
+                                if (ans < W_HEIGHT && ans >= 0) {
+                                    int x_val = nearbyint(second->x);
+                                    pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + x_val + W_WIDTH/2] = 0xff0000;
+                                    struct list_item *ans_new = calloc(sizeof *ans_new, 1);
+                                    ans_new->x = new_x;
+                                    ans_new->y = ans;
+                                    // add point to linked list
+                                    list_add(pos, &ans_new->super);
+                    //printf("Added new point between %f %f y values: %d %d %d count: %d\n", first->x, second->x, first->y, second->y, ans_new->y, list_count(&ans_head->super));
+                                }
+                            } else if (new_x > second->x){
+                                tester++;
                             }
+                        } else {
+                            pos = pos->next;
                         }
-                    }
+                        counter++;
+                    //}
                     break;
                 default:        // if floating point exception (i.e dividing by 0), don't plot that point
                     signal(SIGFPE, fpe_handler);
                     break;
             }
-            // pos = pos->next;
+            // DELETE THIS LINE LATER PLEASE
+            pos = pos->next;
         } else {
             pos = pos->next;
         }
