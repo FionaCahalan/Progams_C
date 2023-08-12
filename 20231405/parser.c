@@ -653,6 +653,7 @@ static intfp generate_x_value(intfp x1_f, intfp x2_f){
     return result;
 }
 
+// given x value, head of tree of parsed function, position in list, and array for pixels, add point
 static void add_point(intfp new_x, struct list_node *pos, unsigned *pixels_for_window, struct node *head){
     struct list_item *ans_new = calloc(sizeof *ans_new, 1);
     switch(sigsetjmp(slj, 1)){
@@ -684,6 +685,7 @@ static void add_point(intfp new_x, struct list_node *pos, unsigned *pixels_for_w
     }
 }
 
+// given head of tree of parsed function, graphs function
 static void display_graph(struct node *head){
     // declares handler to OS
     signal(SIGFPE, fpe_handler);
