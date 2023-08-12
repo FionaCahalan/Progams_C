@@ -697,52 +697,18 @@ static void display_graph(struct node *head){
     struct list_item *ans_head = calloc(sizeof *ans_head, 1);
     list_init_head(&ans_head->super);
 
-    // colors screen black
+    // colors screen black and adds 1 point per pixel
     for (int i = -W_WIDTH/2; i < W_WIDTH/2; i++){
         for (int j = 0; j < W_HEIGHT; j++){
-            pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0xffffff;
+            pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0x000000;
         }
+        add_point(i, (&ans_head->super)->prev, pixels_for_window, head);
     }
     
-    add_point(-W_WIDTH/2, &ans_head->super, pixels_for_window, head);
-    add_point(W_WIDTH/2, (&ans_head->super)->next, pixels_for_window, head);
+    //add_point(-W_WIDTH/2, &ans_head->super, pixels_for_window, head);
+    //add_point(W_WIDTH/2, (&ans_head->super)->next, pixels_for_window, head);
 
-    /*
-    for (volatile int i = -W_WIDTH/2; i < W_WIDTH/2; i++){
-        // effectively colors window black
-        for (int j = 0; j < W_HEIGHT; j++){
-            pixels_for_window[j*W_WIDTH + i + W_WIDTH/2] = 0x000000; 
-        }
-        // sets value of variable representing x axis for calculations, "zooming" in
-        if (x_var){
-            ((struct var *)x_var)->value = i*(1/ZOOM);
-        }
-        struct list_item *ans_new = calloc(sizeof *ans_new, 1);
-        switch(sigsetjmp(slj, 1)){
-            case 0:
-                intfp eval_ans = head->ops->evaluate(head)*ZOOM;
-
-                int ans = nearbyint(eval_ans) + W_HEIGHT/2;
-
-                // place white point if in range
-                if (ans < W_HEIGHT && ans >= 0) {
-                    pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + i + W_WIDTH/2] = 0xffffff;
-                }
-                ans_new->x =  i;
-                ans_new->y = eval_ans;
-                list_add((&ans_head->super)->prev, &ans_new->super);
-                break;
-            default:    // if floating point exception (i.e dividing by 0), don't plot that point
-                // add NaN to list of points
-                signal(SIGFPE, fpe_handler);
-                ans_new->x = i;
-                ans_new->y = NAN;
-                // add point to linked list
-                list_add((&ans_head->super)->prev, &ans_new->super);
-                break;
-        }
-    }
-    */
+    // fills in holes in graph
     volatile struct list_node *pos = (&(ans_head->super))->next;
     while(pos != &ans_head->super){
         struct list_item *first = (struct list_item *) pos;
@@ -761,53 +727,6 @@ static void display_graph(struct node *head){
             pos = pos->next;
         }
     }
-    // Fill in holes in graph
-    /*
-    volatile struct list_node *pos = (&(ans_head->super))->next;
-    while(pos != &ans_head->super){
-        struct list_item *first = (struct list_item *) pos;
-        struct list_item *second = (struct list_item *) pos->next;
-        // if too far apart
-        if (pos->next != &ans_head->super && (first->y - second->y > 1 || second->y - first->y > 1 || isnan(first->y) || isnan(second->y))
-                && !(second->x - first->x < 0.0000001)){    
-            struct list_item *ans_new = calloc(sizeof *ans_new, 1);
-            switch(sigsetjmp(slj, 1)){
-                case 0:
-                    //new x value for new point
-                    intfp new_x = generate_x_value(first->x, second->x);
-                    if(!isnan(new_x) && new_x < second->x && new_x > first->x){
-                            if (x_var){
-                                ((struct var *)x_var)->value = new_x*(1/ZOOM);
-                            }
-                            intfp eval_ans = head->ops->evaluate(head)*ZOOM;
-                            int ans = nearbyint(eval_ans) + W_HEIGHT/2;
-
-                            // place white (RED) point if in range
-                            if (ans < W_HEIGHT && ans >= 0) {
-                                int x_val = nearbyint(new_x);
-                                pixels_for_window[(W_HEIGHT - ans)*W_WIDTH + x_val + W_WIDTH/2] = 0xff0000;
-                            }
-                            ans_new->x = new_x;
-                            ans_new->y = eval_ans;
-                            // add point to linked list
-                            list_add(pos, &ans_new->super);
-                    } else {
-                        pos = pos->next;
-                    }
-                    break;
-                default:    // if floating point exception (i.e dividing by 0), don't plot that point
-                    signal(SIGFPE, fpe_handler);
-                    ans_new->x = new_x;
-                    ans_new->y = NAN;
-                    // add point to linked list
-                    list_add(pos, &ans_new->super);
-                    break;
-            }
-        } else {
-            pos = pos->next;
-        }
-    }
-    */
     void *pixels;
     int pitch;
 
