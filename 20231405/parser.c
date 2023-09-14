@@ -1,3 +1,8 @@
+/*
+Credit: referenced Kevin Cahalan's SDL code in https://github.com/kevinacahalan/piano_waterfall
+*/
+
+
 /* ****GRAMMAR****
 Expression
 term {("+"|"-") term}
